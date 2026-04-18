@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useChatStore } from "@/stores/chat-store";
 import { apiFetch } from "@/lib/api-client";
@@ -9,6 +9,20 @@ import { UserAvatar } from "./UserAvatar";
 import { NewGroupModal } from "./NewGroupModal";
 import { Icons } from "./Icons";
 import type { User } from "@chat-app/shared";
+
+interface MessageSearchResult {
+  id: string;
+  text: string;
+  conversationId: string;
+  senderId: string;
+  senderNickname: string;
+  createdAt: string;
+}
+
+interface SearchResults {
+  users: User[];
+  messages: MessageSearchResult[];
+}
 
 type Tab = "chats" | "people";
 
@@ -22,6 +36,45 @@ export function Sidebar() {
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [query, setQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Global search with debounce
+  const performSearch = useCallback((q: string) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (q.length < 2) {
+      setSearchResults(null);
+      setSearchLoading(false);
+      return;
+    }
+
+    setSearchLoading(true);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await apiFetch(`/api/search?q=${encodeURIComponent(q)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setSearchResults(data);
+        }
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 300);
+  }, []);
+
+  function handleQueryChange(value: string) {
+    setQuery(value);
+    performSearch(value);
+  }
+
+  // Clean up debounce on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
 
   async function handleLogout() {
     await apiFetch("/api/auth/logout", { method: "POST" });
@@ -89,6 +142,13 @@ export function Sidebar() {
               onClick={() => setShowNewGroup(true)}
             >
               <Icons.Plus />
+            </button>
+            <button
+              className="icon-btn"
+              title="Settings"
+              onClick={() => router.push("/settings")}
+            >
+              <Icons.Settings />
             </button>
           </div>
         </div>
@@ -173,13 +233,113 @@ export function Sidebar() {
         <Icons.Search />
         <input
           className="search-input"
-          placeholder={tab === "chats" ? "search chats…" : "search people…"}
+          placeholder="search messages, people…"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => handleQueryChange(e.target.value)}
         />
       </div>
 
-      {tab === "chats" ? (
+      {searchResults !== null ? (
+        /* Global search results */
+        <div className="convo-list">
+          {searchLoading ? (
+            <div
+              style={{
+                textAlign: "center",
+                padding: 24,
+                color: "var(--ink-3)",
+                fontSize: 13,
+              }}
+            >
+              searching…
+            </div>
+          ) : searchResults.messages.length === 0 &&
+            searchResults.users.length === 0 ? (
+            <div
+              style={{
+                textAlign: "center",
+                padding: 24,
+                color: "var(--ink-3)",
+                fontSize: 13,
+              }}
+            >
+              no results
+            </div>
+          ) : (
+            <>
+              {searchResults.messages.length > 0 && (
+                <>
+                  <div className="convo-section-label">
+                    in messages &middot; {searchResults.messages.length}
+                  </div>
+                  {searchResults.messages.map((msg) => (
+                    <button
+                      key={msg.id}
+                      className="convo"
+                      onClick={() => {
+                        setQuery("");
+                        setSearchResults(null);
+                        router.push(`/c/${msg.conversationId}`);
+                      }}
+                      style={{ width: "100%", textAlign: "left" }}
+                    >
+                      <UserAvatar name={msg.senderNickname} />
+                      <div className="convo-body">
+                        <div className="convo-row">
+                          <span className="convo-name">
+                            {msg.senderNickname}
+                          </span>
+                          <span className="convo-time">
+                            {formatSearchTime(msg.createdAt)}
+                          </span>
+                        </div>
+                        <div
+                          className="convo-last"
+                          dangerouslySetInnerHTML={{
+                            __html: highlightMatch(
+                              truncateText(msg.text, 60),
+                              query
+                            ),
+                          }}
+                        />
+                      </div>
+                    </button>
+                  ))}
+                </>
+              )}
+
+              {searchResults.users.length > 0 && (
+                <>
+                  <div className="convo-section-label">
+                    people &middot; {searchResults.users.length}
+                  </div>
+                  {searchResults.users.map((user) => (
+                    <button
+                      key={user.id}
+                      className="convo"
+                      onClick={() => {
+                        setQuery("");
+                        setSearchResults(null);
+                        startDirectChat(user.id);
+                      }}
+                      style={{ width: "100%", textAlign: "left" }}
+                    >
+                      <UserAvatar name={user.nickname} />
+                      <div className="convo-body">
+                        <div className="convo-name">{user.nickname}</div>
+                        <div className="convo-last">
+                          @{user.nickname}
+                          {user.bio ? ` · ${user.bio}` : ""}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </>
+              )}
+            </>
+          )}
+        </div>
+      ) : tab === "chats" ? (
         <>
           <div className="convo-section-label">direct messages</div>
           <div className="convo-list">
@@ -278,6 +438,43 @@ export function Sidebar() {
       {showNewGroup && <NewGroupModal onClose={() => setShowNewGroup(false)} />}
     </aside>
   );
+}
+
+function truncateText(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text;
+  return text.slice(0, maxLen) + "…";
+}
+
+function highlightMatch(text: string, query: string): string {
+  if (!query) return escapeHtml(text);
+  const escaped = escapeHtml(text);
+  const escapedQuery = escapeHtml(query).replace(
+    /[.*+?^${}()|[\]\\]/g,
+    "\\$&"
+  );
+  const regex = new RegExp(`(${escapedQuery})`, "gi");
+  return escaped.replace(regex, "<mark>$1</mark>");
+}
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function formatSearchTime(iso: string): string {
+  const date = new Date(iso);
+  const now = new Date();
+  if (date.toDateString() === now.toDateString()) {
+    return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  }
+  const diff = now.getTime() - date.getTime();
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  if (days === 1) return "yesterday";
+  if (days < 7) return `${days}d`;
+  return `${Math.floor(days / 7)}w`;
 }
 
 function stringToColor(str: string): string {

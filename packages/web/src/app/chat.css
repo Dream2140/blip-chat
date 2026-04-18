@@ -962,3 +962,66 @@
 .search-result-item:hover {
   background: var(--bg-sunk);
 }
+
+/* ============ Emoji Picker ============ */
+.emoji-picker {
+  position: absolute;
+  bottom: 70px;
+  right: 24px;
+  width: 320px;
+  background: var(--bg-elev);
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-pop);
+  z-index: 20;
+  overflow: hidden;
+  animation: pop-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.emoji-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 8px 10px 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.emoji-tab {
+  flex: 1;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  transition: background 0.15s, transform 0.15s;
+}
+
+.emoji-tab:hover {
+  background: var(--bg-sunk);
+}
+
+.emoji-tab.active {
+  background: var(--primary-soft);
+  transform: scale(1.08);
+}
+
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  padding: 10px;
+}
+
+.emoji-cell {
+  width: 100%;
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  border-radius: 10px;
+  transition: background 0.12s, transform 0.15s;
+}
+
+.emoji-cell:hover {
+  background: var(--bg-sunk);
+  transform: scale(1.2);
+}

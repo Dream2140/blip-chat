@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useChatStore } from "@/stores/chat-store";
 import { apiFetch } from "@/lib/api-client";
 import { useToast } from "./Toast";
 import { Icons } from "./Icons";
+import { EmojiPicker } from "./EmojiPicker";
 import type { Message } from "@chat-app/shared";
 
 interface MessageInputProps {
@@ -20,7 +21,26 @@ export function MessageInput({
 }: MessageInputProps) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [showEmoji, setShowEmoji] = useState(false);
   const showToast = useToast((s) => s.show);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const autoResize = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  }, []);
+
+  useEffect(() => {
+    autoResize();
+  }, [text, autoResize]);
+
+  function handleEmojiSelect(emoji: string) {
+    setText((prev) => prev + emoji);
+    setShowEmoji(false);
+    textareaRef.current?.focus();
+  }
 
   async function handleSend() {
     const trimmed = text.trim();
@@ -125,6 +145,7 @@ export function MessageInput({
       )}
       <div className="composer">
         <textarea
+          ref={textareaRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -132,7 +153,11 @@ export function MessageInput({
           rows={1}
         />
         <div className="composer-actions">
-          <button className="icon-btn" title="Emoji">
+          <button
+            className="icon-btn"
+            title="Emoji"
+            onClick={() => setShowEmoji((v) => !v)}
+          >
             <Icons.Smile />
           </button>
           <button
@@ -145,6 +170,7 @@ export function MessageInput({
           </button>
         </div>
       </div>
+      {showEmoji && <EmojiPicker onSelect={handleEmojiSelect} />}
     </div>
   );
 }
