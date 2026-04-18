@@ -16,27 +16,42 @@ interface MessageListProps {
 
 export function MessageList({ conversationId, messages, onReply }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
   const currentUser = useChatStore((s) => s.currentUser);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  const prevMsgCount = useRef(0);
+  const lastMsgId = useRef<string | null>(null);
+  const didInitialScroll = useRef(false);
 
-  // Auto-scroll to bottom on new messages (only if already near bottom)
+  // Auto-scroll: only on genuinely new messages, using container scrollTop (not scrollIntoView)
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
-    const isNearBottom =
-      el.scrollHeight - el.scrollTop - el.clientHeight < 150;
-    const isNewMessage = messages.length > prevMsgCount.current;
-    prevMsgCount.current = messages.length;
+    const newestId = messages.length > 0 ? messages[messages.length - 1].id : null;
+    const isNewMessage = newestId !== lastMsgId.current;
+    lastMsgId.current = newestId;
 
-    if (isNearBottom || isNewMessage) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (!isNewMessage && didInitialScroll.current) return;
+
+    // Initial load — always scroll to bottom
+    if (!didInitialScroll.current) {
+      didInitialScroll.current = true;
+      el.scrollTop = el.scrollHeight;
+      return;
     }
-  }, [messages.length]);
+
+    // New message — only scroll if already near bottom
+    const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+    if (isNearBottom) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [messages]);
+
+  // Reset initial scroll flag when conversation changes
+  useEffect(() => {
+    didInitialScroll.current = false;
+  }, [conversationId]);
 
   // Track scroll position for "scroll to bottom" button
   const handleScroll = useCallback(() => {
@@ -91,7 +106,8 @@ export function MessageList({ conversationId, messages, onReply }: MessageListPr
   }, [handleScroll, hasMore, loadOlder]);
 
   function scrollToBottom() {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }
 
   // Reset hasMore when conversation changes
@@ -168,8 +184,6 @@ export function MessageList({ conversationId, messages, onReply }: MessageListPr
           );
         })
       )}
-
-      <div ref={bottomRef} />
 
       {/* Scroll to bottom button */}
       {showScrollBtn && (
