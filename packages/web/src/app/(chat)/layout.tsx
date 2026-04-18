@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { useSocket } from "@/hooks/useSocket";
 import { useChatStore } from "@/stores/chat-store";
@@ -14,23 +14,24 @@ export default function ChatLayout({
   children: React.ReactNode;
 }) {
   const { connect, disconnect } = useSocket();
-  const setConversations = useChatStore((s) => s.setConversations);
-  const setCurrentUser = useChatStore((s) => s.setCurrentUser);
   const pathname = usePathname();
-
   const hasActiveChat = pathname.startsWith("/c/");
+  const initialized = useRef(false);
 
   useEffect(() => {
+    if (initialized.current) return;
+    initialized.current = true;
+
     fetch("/api/users/me")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data?.user) setCurrentUser(data.user);
+        if (data?.user) useChatStore.getState().setCurrentUser(data.user);
       });
 
     fetch("/api/conversations")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data?.items) setConversations(data.items);
+        if (data?.items) useChatStore.getState().setConversations(data.items);
       });
 
     connect();
@@ -38,7 +39,7 @@ export default function ChatLayout({
     return () => {
       disconnect();
     };
-  }, [connect, disconnect, setConversations, setCurrentUser]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className={`app-shell ${hasActiveChat ? "has-active-chat" : ""}`}>

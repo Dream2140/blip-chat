@@ -8,30 +8,23 @@ import { useChatStore } from "@/stores/chat-store";
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8080";
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "wss://blip-chat-ws.fly.dev";
 
 export function useSocket() {
   const socketRef = useRef<TypedSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-
-  const {
-    addMessage,
-    updateMessage,
-    removeMessage,
-    setUserOnline,
-    setUserOffline,
-    setUserTyping,
-    clearUserTyping,
-    addConversation,
-    conversations,
-  } = useChatStore();
+  const connectingRef = useRef(false);
 
   const connect = useCallback(async () => {
-    if (socketRef.current?.connected) return;
+    if (socketRef.current?.connected || connectingRef.current) return;
+    connectingRef.current = true;
 
     try {
       const res = await fetch("/api/auth/socket-token", { method: "POST" });
-      if (!res.ok) return;
+      if (!res.ok) {
+        connectingRef.current = false;
+        return;
+      }
       const { token } = await res.json();
 
       const socket: TypedSocket = io(WS_URL, {
@@ -41,7 +34,6 @@ export function useSocket() {
 
       socket.on("connect", () => {
         setIsConnected(true);
-        // Join all conversation rooms
         const conversationIds = useChatStore.getState().conversations.map((c) => c.id);
         if (conversationIds.length > 0) {
           socket.emit(SocketEvents.JOIN_CONVERSATIONS, { conversationIds });
@@ -52,13 +44,12 @@ export function useSocket() {
         setIsConnected(false);
       });
 
-      // Message events
       socket.on(SocketEvents.MESSAGE_NEW, (data) => {
-        addMessage(data.conversationId, {
+        useChatStore.getState().addMessage(data.conversationId, {
           id: data.id,
           conversationId: data.conversationId,
           senderId: data.senderId,
-          sender: {} as never, // Will be populated by re-fetch or cache
+          sender: {} as never,
           text: data.text,
           replyToId: data.replyToId,
           replyTo: null,
@@ -70,47 +61,34 @@ export function useSocket() {
       });
 
       socket.on(SocketEvents.MESSAGE_UPDATED, (data) => {
-        updateMessage(data.conversationId, data.id, {
+        useChatStore.getState().updateMessage(data.conversationId, data.id, {
           text: data.text,
           editedAt: data.editedAt,
         });
       });
 
       socket.on(SocketEvents.MESSAGE_DELETED, (data) => {
-        removeMessage(data.conversationId, data.id);
+        useChatStore.getState().removeMessage(data.conversationId, data.id);
       });
 
-      socket.on(SocketEvents.MESSAGE_READ, (data) => {
-        // Update messages as read in the conversation
-        const messages = useChatStore.getState().messagesByConversation[data.conversationId] || [];
-        for (const msg of messages) {
-          if (msg.senderId !== data.userId && msg.createdAt <= data.lastReadMessageId) {
-            updateMessage(data.conversationId, msg.id, { status: "read" });
-          }
-        }
-      });
-
-      // Presence
       socket.on(SocketEvents.USER_ONLINE, (data) => {
-        setUserOnline(data.userId);
+        useChatStore.getState().setUserOnline(data.userId);
       });
 
       socket.on(SocketEvents.USER_OFFLINE, (data) => {
-        setUserOffline(data.userId);
+        useChatStore.getState().setUserOffline(data.userId);
       });
 
-      // Typing
       socket.on(SocketEvents.USER_TYPING, (data) => {
-        setUserTyping(data.conversationId, data.userId);
+        useChatStore.getState().setUserTyping(data.conversationId, data.userId);
       });
 
       socket.on(SocketEvents.USER_STOP_TYPING, (data) => {
-        clearUserTyping(data.conversationId, data.userId);
+        useChatStore.getState().clearUserTyping(data.conversationId, data.userId);
       });
 
-      // New conversation
       socket.on(SocketEvents.CONVERSATION_CREATED, (data) => {
-        addConversation({
+        useChatStore.getState().addConversation({
           id: data.id,
           type: data.type,
           name: data.name,
@@ -126,23 +104,16 @@ export function useSocket() {
       socketRef.current = socket;
     } catch (err) {
       console.error("Socket connection failed:", err);
+    } finally {
+      connectingRef.current = false;
     }
-  }, [addMessage, updateMessage, removeMessage, setUserOnline, setUserOffline, setUserTyping, clearUserTyping, addConversation]);
+  }, []);
 
   const disconnect = useCallback(() => {
     socketRef.current?.disconnect();
     socketRef.current = null;
     setIsConnected(false);
   }, []);
-
-  // Join new conversation rooms when conversations change
-  useEffect(() => {
-    if (socketRef.current?.connected && conversations.length > 0) {
-      socketRef.current.emit(SocketEvents.JOIN_CONVERSATIONS, {
-        conversationIds: conversations.map((c) => c.id),
-      });
-    }
-  }, [conversations]);
 
   const emitTypingStart = useCallback((conversationId: string) => {
     socketRef.current?.emit(SocketEvents.TYPING_START, { conversationId });
@@ -158,8 +129,6 @@ export function useSocket() {
         conversationId,
         lastMessageId,
       });
-
-      // Also persist via API
       fetch(`/api/conversations/${conversationId}/read`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

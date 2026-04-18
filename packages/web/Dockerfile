@@ -16,6 +16,9 @@ RUN npm run build -w packages/shared
 COPY packages/web ./packages/web
 WORKDIR /app/packages/web
 RUN npx prisma generate
+
+# NEXT_PUBLIC_ vars must be set at build time to be inlined in client JS
+ENV NEXT_PUBLIC_WS_URL=wss://blip-chat-ws.fly.dev
 RUN npm run build
 
 # Debug: show standalone structure
