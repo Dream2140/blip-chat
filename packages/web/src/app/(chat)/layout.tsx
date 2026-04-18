@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { useChatStore } from "@/stores/chat-store";
 import { Sidebar } from "@/components/chat/Sidebar";
@@ -15,6 +15,17 @@ export default function ChatLayout({
   const hasActiveChat = pathname.startsWith("/c/");
   const initialized = useRef(false);
 
+  const fetchConversations = useCallback(async () => {
+    try {
+      const res = await fetch("/api/conversations");
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data?.items) {
+        useChatStore.getState().setConversations(data.items);
+      }
+    } catch {}
+  }, []);
+
   useEffect(() => {
     if (initialized.current) return;
     initialized.current = true;
@@ -26,13 +37,14 @@ export default function ChatLayout({
       })
       .catch(() => {});
 
-    fetch("/api/conversations")
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data?.items) useChatStore.getState().setConversations(data.items);
-      })
-      .catch(() => {});
-  }, []);
+    fetchConversations();
+  }, [fetchConversations]);
+
+  // Poll conversations every 5 seconds for sidebar updates
+  useEffect(() => {
+    const interval = setInterval(fetchConversations, 5000);
+    return () => clearInterval(interval);
+  }, [fetchConversations]);
 
   return (
     <div className={`app-shell ${hasActiveChat ? "has-active-chat" : ""}`}>
