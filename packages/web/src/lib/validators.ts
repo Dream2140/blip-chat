@@ -38,10 +38,10 @@ export const updateProfileSchema = z.object({
     .string()
     .min(2)
     .max(30)
-    .regex(/^[a-zA-Z0-9_-]+$/)
+    .regex(/^[a-zA-Z0-9_-]+$/, "Only letters, numbers, hyphens and underscores")
     .optional(),
-  bio: z.string().max(200).optional(),
-  avatarUrl: z.string().url().optional(),
+  bio: z.string().max(200).nullable().optional(),
+  avatarUrl: z.string().url().nullable().optional(),
 });
 
 export const searchUsersSchema = z.object({

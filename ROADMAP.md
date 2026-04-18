@@ -2,159 +2,125 @@
 
 ## Контекст
 
-v0.1 — MVP задеплоен. Работает: auth, 1:1 чаты, группы, сообщения, базовый real-time, blip UI, dark/light theme. Но до реального продукта далеко — много UX дыр, нет обработки ошибок, нет половины состояний из дизайна.
-
-**Цель v0.2**: превратить демо в приложение, которым реально можно пользоваться каждый день.
+v0.1 — MVP задеплоен. v0.2 — превращаем в реальный продукт.
 
 ---
 
-## Patch 0.1.1 — Critical Fixes (день 1)
+## Patch 0.1.1 — Critical Fixes ✅
 
-> Без этого приложение ломается при базовом использовании.
+- [x] **Подключить Redis** — Upstash Redis создан, REDIS_URL в обоих сервисах
+- [x] **Token refresh на клиенте** — apiFetch wrapper с auto-refresh
+- [x] **Обновление sidebar** — polling + WebSocket real-time
+- [x] **Prisma connection pooling** — connection_limit=5
+- [ ] **Fix Next.js 16 middleware → proxy** — deprecated warning, не ломает
 
-- [ ] **P0: Подключить Redis** — real-time не работает без него. Создать Upstash, прокинуть REDIS_URL в оба сервиса
-- [ ] **P0: Fix Next.js 16 middleware → proxy** — `middleware.ts` deprecated в Next 16, нужно мигрировать на `proxy.ts`
-- [ ] **P0: Token refresh на клиенте** — сейчас после 15 мин access token истекает и всё ломается. Добавить interceptor: если 401 с `TOKEN_EXPIRED` → вызвать `/api/auth/refresh` → повторить запрос
-- [ ] **P0: Обновление списка чатов при новом сообщении** — сейчас sidebar не обновляется real-time (lastMessage, updatedAt, сортировка)
-- [ ] **P1: Prisma connection pooling** — добавить `?connection_limit=5` в DATABASE_URL для Fly.io (ограниченные connections)
+## Patch 0.1.2 — UX Holes ✅
 
-## Patch 0.1.2 — UX Holes (дни 2-3)
-
-> Пользователь натыкается на тупики и сломанные состояния.
-
-- [ ] **Error toasts** — глобальный toast для ошибок API (сейчас ошибки молча глотаются)
-- [ ] **Loading states** — skeleton loader при загрузке чатов и сообщений (дизайн есть в states.html — Scene_Loading)
-- [ ] **Optimistic UI fix** — при отправке сообщения temp-message заменять на реальный (сейчас дублируется — temp остаётся + приходит через socket)
-- [ ] **Infinite scroll вверх** — загрузка старых сообщений при прокрутке (cursor pagination уже есть в API, нет на фронте)
-- [ ] **Scroll-to-bottom кнопка** — когда пришло новое сообщение, а пользователь прокрутил вверх
-- [ ] **Connection status indicator** — показывать "reconnecting..." / "offline" (дизайн есть — Scene_Offline)
+- [x] **Error toasts** — глобальный toast для ошибок API
+- [x] **Optimistic UI fix** — temp-message заменяется реальным
+- [x] **Infinite scroll вверх** — загрузка старых сообщений
+- [x] **Scroll-to-bottom кнопка** — центрирована, alignSelf:center
+- [ ] **Loading states** — skeleton loader (TODO)
+- [ ] **Connection status indicator** — offline banner (TODO)
 
 ---
 
 ## v0.2.0 — Feature Patches
 
-### Patch 0.2.0 — Reactions & Message Actions (неделя 1)
+### Patch 0.2.0 — Reactions & Message Actions ✅
 
-Из дизайна: hover actions на bubble, reaction chips, context menu.
+- [x] **Reaction API** — POST /api/messages/:id/reactions (toggle)
+- [x] **Reaction model** — Prisma Reaction с unique [messageId, userId, emoji]
+- [x] **Hover actions UI** — ❤️ 😂 🔥 📌 + reply
+- [x] **Reaction chips** — под bubble, toggle on click
+- [x] **Reply-to UI** — preview в composer, quote в bubble
+- [x] **Reply-to API** — POST возвращает replyTo object (was bug, fixed)
+- [ ] **Edit message UI** — inline editing (API exists)
+- [ ] **Delete message UI** — confirmation modal (API exists)
+- [ ] **Context menu** — long press / right click
 
-- [ ] **Reaction API** — `POST /api/messages/:id/reactions` (toggle emoji reaction)
-- [ ] **Reaction model** — новая таблица или JSON-поле на Message
-- [ ] **Hover actions UI** — уже есть в CSS, подключить: ❤️ 😂 🔥 + reply
-- [ ] **Reaction chips под bubble** — отображение и toggle (дизайн есть)
-- [ ] **Reply-to UI** — reply preview в composer, reply quote в bubble (CSS готов, нужна логика)
-- [ ] **Edit message** — inline editing из context menu + PATCH API (уже есть)
-- [ ] **Delete message** — confirmation modal + DELETE API (уже есть). Дизайн: Scene_DeleteConfirm
-- [ ] **Context menu** — long press / right click: reply, forward, pin, copy, delete (дизайн: Scene_ContextMenu)
+### Patch 0.2.1 — Emoji Picker & Rich Composer ✅
 
-### Patch 0.2.1 — Emoji Picker & Rich Composer (неделя 1-2)
+- [x] **Emoji picker popup** — 5 категорий, 8-column grid
+- [x] **Multi-line textarea** — auto-resize до 120px
+- [x] **Emoji toggle** — 😊 кнопка в composer
+- [ ] **Typing debounce** — не отправлять stop при продолжении набора
 
-- [ ] **Emoji picker popup** — дизайн есть (Scene_EmojiPicker), категории: recent, smileys, animals, food, objects
-- [ ] **Composer attachment buttons** — wire up 📎 и 🖼 кнопки (UI-заглушки сейчас)
-- [ ] **Multi-line textarea** — auto-resize textarea по контенту
-- [ ] **Typing debounce improvement** — не отправлять typing:stop если пользователь продолжает печатать
+### Patch 0.2.2 — Profile & Settings ✅
 
-### Patch 0.2.2 — Profile & Settings (неделя 2)
+- [x] **Settings page** — /settings с dark mode, accent colors, bubble style
+- [x] **Edit own profile** — nickname, bio через PATCH /api/users/me
+- [x] **Theme persistence** — localStorage + apply on load
+- [x] **Accent colors** — 5 вариантов (violet, pink, emerald, tangerine, sky)
+- [x] **Bubble style** — asymmetric/rounded/squared
+- [x] **Notification toggles** — sounds, preview
+- [ ] **Avatar upload** — S3/R2 integration (TODO)
 
-Из дизайна: Scene_Profile, Scene_Settings.
+### Patch 0.2.3 — Search ✅
 
-- [ ] **Profile page** — `/profile/:userId` — аватар, bio, nickname, "friends since"
-- [ ] **Edit own profile** — change nickname, bio, avatar URL
-- [ ] **Settings page** — `/settings`:
-  - Account: profile, privacy
-  - Appearance: dark mode toggle, accent color (5 вариантов из дизайна), bubble style (asymmetric/rounded/squared), density (compact/cozy/comfortable)
-  - Notifications: sounds, preview
-- [ ] **Per-chat settings** — mute notifications, chat theme, clear history
-- [ ] **Avatar upload** — интеграция с S3/Cloudflare R2 для хранения аватаров (сейчас только URL)
+- [x] **Global search** — GET /api/search?q= (users + messages)
+- [x] **Search UI** — debounced, highlighted matches, in messages + people sections
+- [x] **Jump to conversation** — click result → navigate
+- [x] **No results state**
+- [ ] **Jump to message** — scroll to specific message in chat
 
-### Patch 0.2.3 — Search (неделя 2-3)
+### Patch 0.2.4 — Notifications ✅
 
-Из дизайна: Scene_Search, Scene_SearchEmpty.
+- [x] **Unread badge в title** — (N) blip
+- [x] **Sound on new message** — Web Audio API sine wave
+- [x] **Sound respect settings** — localStorage "blip-sounds"
+- [ ] **Browser Push Notifications** — Web Push API (TODO)
+- [ ] **In-app notification panel** — (TODO)
 
-- [ ] **Global search** — поиск по сообщениям + людям одновременно
-- [ ] **Search API** — `GET /api/search?q=` — full-text search по messages + users
-- [ ] **Search results UI** — "in messages · N" + "people · N" секции, highlighted matches
-- [ ] **Jump to message** — клик по результату → открыть чат и прокрутить до сообщения
-- [ ] **No results state** — дизайн есть (Scene_SearchEmpty)
+### Patch 0.2.5 — Pinned Messages ✅
 
-### Patch 0.2.4 — Notifications (неделя 3)
+- [x] **Pin message API** — POST /api/messages/:id/pin (toggle)
+- [x] **pinnedAt/pinnedById fields** — migration applied
+- [x] **Pinned banner** — yellow banner with count, clickable
+- [x] **Pinned messages list** — inline dropdown on banner click
+- [x] **Pin button** — 📌 in hover actions with toast feedback
+- [x] **Pinned list API** — GET /api/conversations/:id/pinned
 
-Из дизайна: Scene_Notifs.
+### Patch 0.2.6 — Media Messages (pending)
 
-- [ ] **Browser Push Notifications** — Web Push API, запрос разрешения
-- [ ] **In-app notification panel** — slide-out panel с историей (новое сообщение, реакция, typing, звонок, pin)
-- [ ] **Unread badge в title** — `(3) blip` в title вкладки
-- [ ] **Sound on new message** — короткий звук при получении сообщения (настройка в settings)
-- [ ] **Notification grouping** — "Maya sent 3 messages" вместо 3 отдельных
+- [ ] File upload (needs S3/R2)
+- [ ] Image messages
+- [ ] Image lightbox
+- [ ] Shared media gallery
 
-### Patch 0.2.5 — Pinned Messages (неделя 3)
+### Patch 0.2.7 — Voice Messages (pending)
 
-Из дизайна: pinned banner, Scene_PinnedList.
-
-- [ ] **Pin message API** — `POST /api/messages/:id/pin`
-- [ ] **PinnedMessage model** — или boolean на Message
-- [ ] **Pinned banner в chat header** — жёлтый баннер как в дизайне
-- [ ] **Pinned messages list** — отдельный view `/c/:id/pinned`
-- [ ] **Unpin** — только admin в группе или оба в direct
-
-### Patch 0.2.6 — Media Messages (неделя 4)
-
-Из дизайна: msg-image, Scene_Upload, Scene_Lightbox, Scene_Gallery.
-
-- [ ] **File upload** — drag & drop + кнопка, upload в S3/R2
-- [ ] **Image messages** — отображение inline с preview
-- [ ] **Upload preview** — before sending: thumbnails + caption input (Scene_Upload)
-- [ ] **Image lightbox** — fullscreen view с save/forward/react (Scene_Lightbox)
-- [ ] **Shared media gallery** — `/c/:id/media` — grid всех фото/файлов (Scene_Gallery)
-- [ ] **File messages** — PDF, documents с иконкой и именем
-- [ ] **Message type field** — `type: "text" | "image" | "file" | "voice"` на Message model
-
-### Patch 0.2.7 — Voice Messages (неделя 4-5)
-
-Из дизайна: Scene_VoiceRec.
-
-- [ ] **Voice recording** — MediaRecorder API, waveform визуализация
-- [ ] **Voice message player** — inline player с waveform + duration
-- [ ] **Slide to cancel** — UI gesture как в дизайне
-- [ ] **Upload voice to S3/R2** — сохранение как audio file
+- [ ] Voice recording
+- [ ] Voice player
+- [ ] Upload to S3/R2
 
 ---
 
-## Non-functional для v0.2
+## Performance Audit ✅
 
-### Performance
-- [ ] **Virtualized message list** — `@tanstack/virtual` для чатов с 1000+ сообщениями
-- [ ] **Conversation list virtualization** — для 100+ чатов
-- [ ] **Image lazy loading** — intersection observer для media
-- [ ] **Service Worker** — кеширование статики, offline shell
+- [x] **N+1 → batch** — conversations unread count uses single groupBy
+- [x] **DB indexes** — composite index [conversationId, senderId, deletedAt]
+- [x] **Smart polling** — zero polling when WebSocket connected, 30s fallback
+- [x] **Socket reconnect** — backoff 2s→15s, max 5 attempts
+- [x] **Message dedup** — skip own messages from socket, dedup by ID
+- [x] **Redis error logging** — console.error instead of swallow
+- [x] **Pinned limit** — take:50
+- [x] **Pinned count cache** — 60s TTL
+- [x] **People tab cache** — fetch once per session
+- [x] **Visibility API** — stop polling when tab hidden
+- [x] **Slim payload** — conversations API returns minimal participant data
+- [x] **socketConnected in store** — single source of truth for polling control
 
-### Testing
-- [ ] **API route tests** — Jest/Vitest для всех endpoints
-- [ ] **Component tests** — React Testing Library для ключевых компонентов
-- [ ] **E2E tests** — Playwright: register → create chat → send message → receive
-- [ ] **CI pipeline** — GitHub Actions: lint + typecheck + test на каждый PR
+## Bug Fixes ✅
 
-### Security
-- [ ] **Rate limiting** — на auth endpoints (brute force protection)
-- [ ] **Input sanitization** — XSS protection на message text (сейчас рендерим raw text, но стоит добавить)
-- [ ] **CSRF double-submit** — дополнительная защита помимо SameSite
-- [ ] **Expired refresh token cleanup** — cron job для удаления старых токенов
+- [x] **React #185** — stable empty ref for Zustand selector (was `|| []`)
+- [x] **Reply-to null** — POST /messages now includes replyTo object
+- [x] **Pinned banner not clickable** — added onClick + inline pinned list
+- [x] **New messages button float** — alignSelf:center
+- [x] **Mobile viewport** — added meta viewport tag
+- [x] **Double messages** — skip own messages from WebSocket
+- [x] **Profile update bio:null** — Zod schema accepts nullable
 
-### Infrastructure
-- [ ] **Custom domain** — `blip.chat` или подобный
-- [ ] **CDN для статики** — Cloudflare перед Fly.io
-- [ ] **Database backups** — automated daily backups в Fly Postgres
-- [ ] **Monitoring** — Sentry для error tracking, Fly metrics для uptime
-- [ ] **Logging** — structured JSON logs, aggregation
+## E2E Tests — 27 passing
 
----
-
-## Порядок работы (рекомендация)
-
-```
-Week 1:  0.1.1 (critical) → 0.1.2 (UX) → 0.2.0 (reactions)
-Week 2:  0.2.1 (emoji) → 0.2.2 (profile/settings) → 0.2.3 (search)
-Week 3:  0.2.4 (notifications) → 0.2.5 (pins) → testing
-Week 4:  0.2.6 (media) → 0.2.7 (voice) → polish → v0.2.0 release
-```
-
-Каждый патч — отдельная ветка + PR + деплой на preview → merge в main → production.
+Auth (10), Sidebar (3), 1:1 Chat (6), Group Chat (2), API Validation (4), Bug Fixes (2)
