@@ -90,6 +90,8 @@ model Message {
   replies        Message[]    @relation("Replies")
   editedAt       DateTime?
   deletedAt      DateTime?
+  pinnedAt       DateTime?
+  pinnedById     String?
   createdAt      DateTime     @default(now())
 
   readReceipts MessageReadReceipt[]

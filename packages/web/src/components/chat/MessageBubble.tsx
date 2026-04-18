@@ -2,6 +2,7 @@
 
 import { useChatStore } from "@/stores/chat-store";
 import { apiFetch } from "@/lib/api-client";
+import { useToast } from "./Toast";
 import { UserAvatar } from "./UserAvatar";
 import type { Message, MessageReaction } from "@chat-app/shared";
 
@@ -43,6 +44,27 @@ export function MessageBubble({
       : message.status === "delivered"
         ? "✓✓"
         : "✓ sent";
+
+  const toast = useToast();
+
+  async function togglePin() {
+    const res = await apiFetch(`/api/messages/${message.id}/pin`, {
+      method: "POST",
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      useChatStore.getState().updateMessage(
+        message.conversationId,
+        message.id,
+        { pinnedAt: data.pinnedAt }
+      );
+      toast.show(
+        data.pinnedAt ? "Message pinned" : "Message unpinned",
+        "success"
+      );
+    }
+  }
 
   async function toggleReaction(emoji: string) {
     const res = await apiFetch(`/api/messages/${message.id}/reactions`, {
@@ -95,6 +117,9 @@ export function MessageBubble({
               </button>
               <button onClick={() => toggleReaction("🔥")} title="fire">
                 🔥
+              </button>
+              <button onClick={togglePin} title="pin">
+                {"\uD83D\uDCCC"}
               </button>
               {onReply && (
                 <button onClick={() => onReply(message)} title="reply">

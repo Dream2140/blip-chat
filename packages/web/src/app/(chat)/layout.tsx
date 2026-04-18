@@ -24,6 +24,12 @@ export default function ChatLayout({
       const data = await res.json();
       if (data?.items) {
         useChatStore.getState().setConversations(data.items);
+
+        const totalUnread = (data.items as { unreadCount?: number }[]).reduce(
+          (sum, c) => sum + (c.unreadCount ?? 0),
+          0
+        );
+        document.title = totalUnread > 0 ? `(${totalUnread}) blip` : "blip";
       }
     } catch {}
   }, []);

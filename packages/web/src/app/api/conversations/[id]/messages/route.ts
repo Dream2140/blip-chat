@@ -98,6 +98,7 @@ export async function GET(
           : null,
         editedAt: m.editedAt?.toISOString() || null,
         deletedAt: m.deletedAt?.toISOString() || null,
+        pinnedAt: m.pinnedAt?.toISOString() || null,
         createdAt: m.createdAt.toISOString(),
         // Status: "read" if anyone (other than sender) has a read receipt, else "sent"
         status: (m.senderId === auth.userId && m.readReceipts.some((r: { userId: string }) => r.userId !== auth.userId))

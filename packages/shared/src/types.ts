@@ -44,6 +44,7 @@ export interface Message {
   replyTo: Message | null;
   editedAt: string | null;
   deletedAt: string | null;
+  pinnedAt?: string | null;
   createdAt: string;
   status: MessageStatus;
   reactions?: MessageReaction[];

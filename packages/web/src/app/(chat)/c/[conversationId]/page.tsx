@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import { useChatStore } from "@/stores/chat-store";
 import { apiFetch } from "@/lib/api-client";
+import { playNotificationSound } from "@/lib/notification-sound";
 import { MessageList } from "@/components/chat/MessageList";
 import { MessageInput } from "@/components/chat/MessageInput";
 import { ConversationHeader } from "@/components/chat/ConversationHeader";
@@ -17,6 +18,7 @@ export default function ConversationPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [replyTo, setReplyTo] = useState<Message | null>(null);
+  const prevMessageCountRef = useRef<number>(0);
 
   const messages = useChatStore(
     (s) => s.messagesByConversation[conversationId] ?? EMPTY_MESSAGES
@@ -30,10 +32,24 @@ export default function ConversationPage() {
       if (!res.ok) return;
       const data = await res.json();
       if (data?.items) {
+        const currentUserId = useChatStore.getState().currentUser?.id;
+        const prevCount = prevMessageCountRef.current;
+        const newCount = (data.items as Message[]).length;
+
+        if (prevCount > 0 && newCount > prevCount && !document.hasFocus()) {
+          const newMessages = (data.items as Message[]).slice(prevCount);
+          const hasOtherUserMessage = newMessages.some(
+            (m) => m.senderId !== currentUserId && !m.deletedAt
+          );
+          if (hasOtherUserMessage) {
+            playNotificationSound();
+          }
+        }
+        prevMessageCountRef.current = newCount;
+
         useChatStore.getState().setMessages(conversationId, data.items);
 
         // Mark as read: find the last message not sent by me
-        const currentUserId = useChatStore.getState().currentUser?.id;
         const lastOtherMsg = [...data.items]
           .reverse()
           .find((m: Message) => m.senderId !== currentUserId && !m.deletedAt);
