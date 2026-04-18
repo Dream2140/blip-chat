@@ -1,34 +1,76 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useChatStore } from "@/stores/chat-store";
 import { ConversationItem } from "./ConversationItem";
-import { SearchUsers } from "./SearchUsers";
+import { UserAvatar } from "./UserAvatar";
 import { NewGroupModal } from "./NewGroupModal";
 import { Icons } from "./Icons";
+import type { User } from "@chat-app/shared";
+
+type Tab = "chats" | "people";
 
 export function Sidebar() {
   const router = useRouter();
   const conversations = useChatStore((s) => s.conversations);
   const currentUser = useChatStore((s) => s.currentUser);
-  const [showSearch, setShowSearch] = useState(false);
+  const addConversation = useChatStore((s) => s.addConversation);
   const [showNewGroup, setShowNewGroup] = useState(false);
+  const [tab, setTab] = useState<Tab>("chats");
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [query, setQuery] = useState("");
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
     router.refresh();
   }
-  const [query, setQuery] = useState("");
 
-  const filtered = conversations.filter((c) => {
+  // Fetch all users when People tab is activated
+  useEffect(() => {
+    if (tab !== "people") return;
+    setLoadingUsers(true);
+    fetch("/api/users/all")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.users) setAllUsers(data.users);
+      })
+      .finally(() => setLoadingUsers(false));
+  }, [tab]);
+
+  async function startDirectChat(userId: string) {
+    const res = await fetch("/api/conversations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "DIRECT", participantIds: [userId] }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      // Add to store if not already there
+      const exists = conversations.find((c) => c.id === data.conversation.id);
+      if (!exists) {
+        addConversation(data.conversation);
+      }
+      setTab("chats");
+      router.push(`/c/${data.conversation.id}`);
+    }
+  }
+
+  const filteredConversations = conversations.filter((c) => {
     if (!query) return true;
     const q = query.toLowerCase();
     return (
       c.name?.toLowerCase().includes(q) ||
       c.participants.some((p) => p.user.nickname.toLowerCase().includes(q))
     );
+  });
+
+  const filteredUsers = allUsers.filter((u) => {
+    if (!query) return true;
+    return u.nickname.toLowerCase().includes(query.toLowerCase());
   });
 
   return (
@@ -42,17 +84,10 @@ export function Sidebar() {
           <div className="header-actions">
             <button
               className="icon-btn"
-              title="New chat"
-              onClick={() => setShowSearch(true)}
-            >
-              <Icons.Plus />
-            </button>
-            <button
-              className="icon-btn"
               title="New group"
               onClick={() => setShowNewGroup(true)}
             >
-              <Icons.Settings />
+              <Icons.Plus />
             </button>
           </div>
         </div>
@@ -89,42 +124,156 @@ export function Sidebar() {
         )}
       </div>
 
+      {/* Tabs */}
+      <div
+        style={{
+          display: "flex",
+          gap: 4,
+          padding: "0 16px",
+          marginBottom: 8,
+          background: "var(--bg-sunk)",
+        }}
+      >
+        <button
+          onClick={() => setTab("chats")}
+          style={{
+            flex: 1,
+            padding: "8px 0",
+            fontSize: 13,
+            fontWeight: 600,
+            borderRadius: 10,
+            background: tab === "chats" ? "var(--bg-elev)" : "transparent",
+            color: tab === "chats" ? "var(--ink)" : "var(--ink-3)",
+            boxShadow: tab === "chats" ? "var(--shadow-card)" : "none",
+            transition: "all 0.15s",
+          }}
+        >
+          chats
+        </button>
+        <button
+          onClick={() => setTab("people")}
+          style={{
+            flex: 1,
+            padding: "8px 0",
+            fontSize: 13,
+            fontWeight: 600,
+            borderRadius: 10,
+            background: tab === "people" ? "var(--bg-elev)" : "transparent",
+            color: tab === "people" ? "var(--ink)" : "var(--ink-3)",
+            boxShadow: tab === "people" ? "var(--shadow-card)" : "none",
+            transition: "all 0.15s",
+          }}
+        >
+          people
+        </button>
+      </div>
+
       <div className="search-wrap">
         <Icons.Search />
         <input
           className="search-input"
-          placeholder="search friends, messages…"
+          placeholder={tab === "chats" ? "search chats…" : "search people…"}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
       </div>
 
-      <div className="convo-section-label">direct messages</div>
-      <div className="convo-list">
-        {filtered.length === 0 ? (
-          <div
-            style={{
-              textAlign: "center",
-              padding: 24,
-              color: "var(--ink-3)",
-              fontSize: 13,
-            }}
-          >
-            {conversations.length === 0
-              ? "no chats yet — start one!"
-              : "no results"}
+      {tab === "chats" ? (
+        <>
+          <div className="convo-section-label">direct messages</div>
+          <div className="convo-list">
+            {filteredConversations.length === 0 ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: 24,
+                  color: "var(--ink-3)",
+                  fontSize: 13,
+                }}
+              >
+                {conversations.length === 0 ? (
+                  <>
+                    no chats yet
+                    <br />
+                    <button
+                      onClick={() => setTab("people")}
+                      style={{
+                        color: "var(--primary)",
+                        fontWeight: 600,
+                        marginTop: 8,
+                        fontSize: 13,
+                      }}
+                    >
+                      find someone to chat with →
+                    </button>
+                  </>
+                ) : (
+                  "no results"
+                )}
+              </div>
+            ) : (
+              filteredConversations.map((conversation) => (
+                <ConversationItem
+                  key={conversation.id}
+                  conversation={conversation}
+                />
+              ))
+            )}
           </div>
-        ) : (
-          filtered.map((conversation) => (
-            <ConversationItem
-              key={conversation.id}
-              conversation={conversation}
-            />
-          ))
-        )}
-      </div>
+        </>
+      ) : (
+        <>
+          <div className="convo-section-label">
+            all users · {filteredUsers.length}
+          </div>
+          <div className="convo-list">
+            {loadingUsers ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: 24,
+                  color: "var(--ink-3)",
+                  fontSize: 13,
+                }}
+              >
+                loading…
+              </div>
+            ) : filteredUsers.length === 0 ? (
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: 24,
+                  color: "var(--ink-3)",
+                  fontSize: 13,
+                }}
+              >
+                {allUsers.length === 0
+                  ? "no other users yet — invite someone!"
+                  : "no results"}
+              </div>
+            ) : (
+              filteredUsers.map((user) => (
+                <button
+                  key={user.id}
+                  className="convo"
+                  onClick={() => startDirectChat(user.id)}
+                  style={{ width: "100%", textAlign: "left" }}
+                >
+                  <UserAvatar name={user.nickname} />
+                  <div className="convo-body">
+                    <div className="convo-name">{user.nickname}</div>
+                    <div className="convo-last">
+                      @{user.nickname}
+                      {user.bio ? ` · ${user.bio}` : ""}
+                    </div>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </>
+      )}
 
-      {showSearch && <SearchUsers onClose={() => setShowSearch(false)} />}
       {showNewGroup && <NewGroupModal onClose={() => setShowNewGroup(false)} />}
     </aside>
   );
