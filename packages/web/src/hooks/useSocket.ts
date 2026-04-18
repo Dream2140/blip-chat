@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 import { SocketEvents } from "@chat-app/shared";
 import type { ServerToClientEvents, ClientToServerEvents } from "@chat-app/shared";
 import { useChatStore } from "@/stores/chat-store";
+import { apiFetch } from "@/lib/api-client";
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -20,7 +21,8 @@ export function useSocket() {
     connectingRef.current = true;
 
     try {
-      const res = await fetch("/api/auth/socket-token", { method: "POST" });
+      // Use apiFetch for token refresh support
+      const res = await apiFetch("/api/auth/socket-token", { method: "POST" });
       if (!res.ok) {
         connectingRef.current = false;
         return;
@@ -31,9 +33,9 @@ export function useSocket() {
         auth: { token },
         transports: ["websocket"],
         reconnection: true,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 10000,
-        reconnectionAttempts: 10,
+        reconnectionDelay: 2000,
+        reconnectionDelayMax: 15000,
+        reconnectionAttempts: 5,
       });
 
       socket.on("connect", () => {
@@ -48,8 +50,17 @@ export function useSocket() {
         setIsConnected(false);
       });
 
+      socket.on("connect_error", (err) => {
+        console.error("[Socket] connect error:", err.message);
+        setIsConnected(false);
+      });
+
+      // MESSAGE_NEW — skip own messages (sender has optimistic update already)
       socket.on(SocketEvents.MESSAGE_NEW, (data) => {
-        // Dedup: skip if message already in store (from optimistic update or HTTP)
+        const currentUserId = useChatStore.getState().currentUser?.id;
+        if (data.senderId === currentUserId) return; // sender already has it
+
+        // Also dedup by ID
         const existing = useChatStore.getState().messagesByConversation[data.conversationId];
         if (existing?.some((m) => m.id === data.id)) return;
 
@@ -65,6 +76,7 @@ export function useSocket() {
           deletedAt: null,
           createdAt: data.createdAt,
           status: "delivered",
+          reactions: [],
         });
       });
 
@@ -111,7 +123,7 @@ export function useSocket() {
 
       socketRef.current = socket;
     } catch (err) {
-      console.error("Socket connection failed:", err);
+      console.error("[Socket] connection failed:", err);
     } finally {
       connectingRef.current = false;
     }
@@ -137,7 +149,7 @@ export function useSocket() {
         conversationId,
         lastMessageId,
       });
-      fetch(`/api/conversations/${conversationId}/read`, {
+      apiFetch(`/api/conversations/${conversationId}/read`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lastMessageId }),
