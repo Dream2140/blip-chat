@@ -13,6 +13,10 @@ const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "wss://blip-chat-ws.fly.dev";
 
 // Module-level refs — shared across all useSocket() instances
 let globalSocket: TypedSocket | null = null;
+
+export function getGlobalSocket() {
+  return globalSocket;
+}
 let globalConnecting = false;
 
 export function useSocket() {
@@ -127,48 +131,55 @@ export function useSocket() {
         });
       });
 
-      // ── Call signaling events ──
+      // ── Call signaling events ── direct module-level handlers, no window hacks
       socket.on("call:initiate" as never, ((data: { callerId: string; callerNickname: string }) => {
+        console.log("[Socket] call:initiate from", data.callerNickname);
         useChatStore.getState().receiveCall(data.callerId, data.callerNickname);
       }) as never);
 
-      socket.on("call:accept" as never, ((data: { callerId: string }) => {
+      socket.on("call:accept" as never, (() => {
+        console.log("[Socket] call:accept received");
         useChatStore.getState().acceptCall();
-        // Notify CallOverlay to start WebRTC offer
-        const handler = (window as unknown as Record<string, unknown>).__blipCallAcceptHandler as
-          | ((data: { callerId: string }) => void)
-          | undefined;
-        if (handler) handler(data);
+        // Caller side: start WebRTC offer
+        const targetId = useChatStore.getState().callRemoteUserId;
+        if (targetId) {
+          import("@/hooks/useWebRTC").then(({ webrtcStartOffer }) => {
+            webrtcStartOffer(targetId);
+          });
+        }
       }) as never);
 
       socket.on("call:reject" as never, (() => {
-        useChatStore.getState().endCall();
+        console.log("[Socket] call:reject");
+        import("@/hooks/useWebRTC").then(({ webrtcCleanup }) => webrtcCleanup());
       }) as never);
 
       socket.on("call:end" as never, (() => {
-        useChatStore.getState().endCall();
+        console.log("[Socket] call:end");
+        import("@/hooks/useWebRTC").then(({ webrtcCleanup }) => webrtcCleanup());
       }) as never);
 
-      socket.on("call:offer" as never, ((data: { sdp: string; callerId: string }) => {
-        // Handled by CallOverlay via onCallOffer
-        const handler = (window as unknown as Record<string, unknown>).__blipCallOfferHandler as
-          | ((data: { sdp: string; callerId: string }) => void)
-          | undefined;
-        if (handler) handler(data);
+      socket.on("call:offer" as never, ((data: { sdp: string }) => {
+        console.log("[Socket] call:offer received");
+        const callerId = useChatStore.getState().callRemoteUserId;
+        if (callerId) {
+          import("@/hooks/useWebRTC").then(({ webrtcHandleOffer }) => {
+            webrtcHandleOffer(callerId, data.sdp);
+          });
+        }
       }) as never);
 
       socket.on("call:answer" as never, ((data: { sdp: string }) => {
-        const handler = (window as unknown as Record<string, unknown>).__blipCallAnswerHandler as
-          | ((data: { sdp: string }) => void)
-          | undefined;
-        if (handler) handler(data);
+        console.log("[Socket] call:answer received");
+        import("@/hooks/useWebRTC").then(({ webrtcHandleAnswer }) => {
+          webrtcHandleAnswer(data.sdp);
+        });
       }) as never);
 
       socket.on("call:ice_candidate" as never, ((data: { candidate: string }) => {
-        const handler = (window as unknown as Record<string, unknown>).__blipCallIceCandidateHandler as
-          | ((data: { candidate: string }) => void)
-          | undefined;
-        if (handler) handler(data);
+        import("@/hooks/useWebRTC").then(({ webrtcHandleIceCandidate }) => {
+          webrtcHandleIceCandidate(data.candidate);
+        });
       }) as never);
 
       globalSocket = socket;

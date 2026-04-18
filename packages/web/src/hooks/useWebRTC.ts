@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useCallback } from "react";
+import { useCallback } from "react";
 import { useChatStore } from "@/stores/chat-store";
 
 const ICE_SERVERS = [
@@ -8,135 +8,198 @@ const ICE_SERVERS = [
   { urls: "stun:stun1.l.google.com:19302" },
 ];
 
-export function useWebRTC() {
-  const pcRef = useRef<RTCPeerConnection | null>(null);
-  const localStreamRef = useRef<MediaStream | null>(null);
-  const remoteAudioRef = useRef<HTMLAudioElement | null>(null);
+// Module-level state — shared across all hook instances
+let pc: RTCPeerConnection | null = null;
+let localStream: MediaStream | null = null;
+let remoteAudio: HTMLAudioElement | null = null;
+let pendingCandidates: RTCIceCandidateInit[] = [];
 
-  const getLocalStream = async () => {
-    if (localStreamRef.current) return localStreamRef.current;
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    localStreamRef.current = stream;
-    return stream;
+async function getLocalStream(): Promise<MediaStream> {
+  if (localStream) return localStream;
+  localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  return localStream;
+}
+
+function getEmit(): ((event: string, data: unknown) => void) | null {
+  // Import dynamically to avoid circular deps
+  const { getGlobalSocket } = require("@/hooks/useSocket");
+  const socket = getGlobalSocket();
+  if (!socket) return null;
+  return (event: string, data: unknown) => {
+    (socket as { emit: (e: string, d: unknown) => void }).emit(event, data);
+  };
+}
+
+function ensureAudioElement(): HTMLAudioElement {
+  if (!remoteAudio) {
+    remoteAudio = document.createElement("audio");
+    remoteAudio.autoplay = true;
+    (remoteAudio as unknown as Record<string, boolean>).playsInline = true;
+    // Append to DOM to help with autoplay policy
+    remoteAudio.style.display = "none";
+    document.body.appendChild(remoteAudio);
+  }
+  return remoteAudio;
+}
+
+function createPC(targetUserId: string): RTCPeerConnection {
+  if (pc) {
+    pc.close();
+  }
+  pendingCandidates = [];
+
+  const conn = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+
+  conn.ontrack = (event) => {
+    console.log("[WebRTC] remote track received");
+    const audio = ensureAudioElement();
+    audio.srcObject = event.streams[0];
+    audio.play().catch((e) => console.warn("[WebRTC] audio play blocked:", e));
   };
 
-  const createPeerConnection = useCallback(() => {
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-
-    pc.ontrack = (event) => {
-      if (!remoteAudioRef.current) {
-        remoteAudioRef.current = new Audio();
-        remoteAudioRef.current.autoplay = true;
+  conn.onicecandidate = (event) => {
+    if (event.candidate) {
+      const emit = getEmit();
+      if (emit) {
+        emit("call:ice_candidate", {
+          targetUserId,
+          candidate: JSON.stringify(event.candidate),
+        });
       }
-      remoteAudioRef.current.srcObject = event.streams[0];
-    };
+    }
+  };
 
-    pcRef.current = pc;
-    return pc;
-  }, []);
+  conn.oniceconnectionstatechange = () => {
+    console.log("[WebRTC] ICE state:", conn.iceConnectionState);
+    if (conn.iceConnectionState === "connected" || conn.iceConnectionState === "completed") {
+      useChatStore.getState().acceptCall();
+    }
+    if (conn.iceConnectionState === "failed" || conn.iceConnectionState === "disconnected") {
+      console.warn("[WebRTC] connection failed/disconnected");
+    }
+  };
 
-  const startCall = useCallback(
-    async (
-      socketEmit: (event: string, data: unknown) => void,
-      targetUserId: string,
-    ) => {
-      const stream = await getLocalStream();
-      const pc = createPeerConnection();
+  pc = conn;
+  return conn;
+}
 
-      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+// Called by CALLER after callee accepts
+export async function webrtcStartOffer(targetUserId: string) {
+  try {
+    console.log("[WebRTC] creating offer for", targetUserId);
+    const stream = await getLocalStream();
+    const conn = createPC(targetUserId);
 
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          socketEmit("call:ice_candidate", {
-            targetUserId,
-            candidate: JSON.stringify(event.candidate),
-          });
-        }
-      };
+    stream.getTracks().forEach((track) => conn.addTrack(track, stream));
 
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
+    const offer = await conn.createOffer();
+    await conn.setLocalDescription(offer);
 
-      socketEmit("call:offer", {
+    const emit = getEmit();
+    if (emit) {
+      emit("call:offer", {
         targetUserId,
         sdp: JSON.stringify(offer),
       });
-    },
-    [createPeerConnection],
-  );
+    }
+  } catch (e) {
+    console.error("[WebRTC] startOffer failed:", e);
+  }
+}
 
-  const handleOffer = useCallback(
-    async (
-      socketEmit: (event: string, data: unknown) => void,
-      targetUserId: string,
-      sdp: string,
-    ) => {
-      const stream = await getLocalStream();
-      const pc = createPeerConnection();
+// Called by CALLEE when receiving offer
+export async function webrtcHandleOffer(targetUserId: string, sdp: string) {
+  try {
+    console.log("[WebRTC] handling offer from", targetUserId);
+    const stream = await getLocalStream();
+    const conn = createPC(targetUserId);
 
-      stream.getTracks().forEach((track) => pc.addTrack(track, stream));
+    stream.getTracks().forEach((track) => conn.addTrack(track, stream));
 
-      pc.onicecandidate = (event) => {
-        if (event.candidate) {
-          socketEmit("call:ice_candidate", {
-            targetUserId,
-            candidate: JSON.stringify(event.candidate),
-          });
-        }
-      };
+    await conn.setRemoteDescription(new RTCSessionDescription(JSON.parse(sdp)));
 
-      await pc.setRemoteDescription(JSON.parse(sdp));
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
+    // Process any ICE candidates that arrived before the offer
+    for (const c of pendingCandidates) {
+      await conn.addIceCandidate(new RTCIceCandidate(c));
+    }
+    pendingCandidates = [];
 
-      socketEmit("call:answer", {
+    const answer = await conn.createAnswer();
+    await conn.setLocalDescription(answer);
+
+    const emit = getEmit();
+    if (emit) {
+      emit("call:answer", {
         targetUserId,
         sdp: JSON.stringify(answer),
       });
-    },
-    [createPeerConnection],
-  );
-
-  const handleAnswer = useCallback(async (sdp: string) => {
-    if (pcRef.current) {
-      await pcRef.current.setRemoteDescription(JSON.parse(sdp));
     }
-  }, []);
+  } catch (e) {
+    console.error("[WebRTC] handleOffer failed:", e);
+  }
+}
 
-  const handleIceCandidate = useCallback(async (candidate: string) => {
-    if (pcRef.current) {
-      await pcRef.current.addIceCandidate(JSON.parse(candidate));
+// Called by CALLER when receiving answer
+export async function webrtcHandleAnswer(sdp: string) {
+  try {
+    console.log("[WebRTC] handling answer");
+    if (pc && pc.signalingState === "have-local-offer") {
+      await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(sdp)));
+
+      // Process queued ICE candidates
+      for (const c of pendingCandidates) {
+        await pc.addIceCandidate(new RTCIceCandidate(c));
+      }
+      pendingCandidates = [];
     }
-  }, []);
+  } catch (e) {
+    console.error("[WebRTC] handleAnswer failed:", e);
+  }
+}
 
+// Called when receiving ICE candidate
+export async function webrtcHandleIceCandidate(candidate: string) {
+  try {
+    const parsed = JSON.parse(candidate);
+    if (pc && pc.remoteDescription) {
+      await pc.addIceCandidate(new RTCIceCandidate(parsed));
+    } else {
+      // Queue if remote description not set yet
+      pendingCandidates.push(parsed);
+    }
+  } catch (e) {
+    console.error("[WebRTC] handleIceCandidate failed:", e);
+  }
+}
+
+export function webrtcCleanup() {
+  localStream?.getTracks().forEach((t) => t.stop());
+  localStream = null;
+  pc?.close();
+  pc = null;
+  pendingCandidates = [];
+  if (remoteAudio) {
+    remoteAudio.srcObject = null;
+    remoteAudio.remove();
+    remoteAudio = null;
+  }
+  useChatStore.getState().endCall();
+}
+
+// Hook wrapper for components
+export function useWebRTC() {
   const toggleMute = useCallback(() => {
-    if (localStreamRef.current) {
-      const audioTrack = localStreamRef.current.getAudioTracks()[0];
-      if (audioTrack) {
-        audioTrack.enabled = !audioTrack.enabled;
+    if (localStream) {
+      const track = localStream.getAudioTracks()[0];
+      if (track) {
+        track.enabled = !track.enabled;
         useChatStore.getState().toggleMute();
       }
     }
   }, []);
 
-  const cleanup = useCallback(() => {
-    localStreamRef.current?.getTracks().forEach((t) => t.stop());
-    localStreamRef.current = null;
-    pcRef.current?.close();
-    pcRef.current = null;
-    if (remoteAudioRef.current) {
-      remoteAudioRef.current.srcObject = null;
-      remoteAudioRef.current = null;
-    }
-    useChatStore.getState().endCall();
-  }, []);
-
   return {
-    startCall,
-    handleOffer,
-    handleAnswer,
-    handleIceCandidate,
     toggleMute,
-    cleanup,
+    cleanup: webrtcCleanup,
   };
 }
