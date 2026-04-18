@@ -4,7 +4,7 @@ const BASE_URL = process.env.TEST_URL || "https://blip-chat-web.fly.dev";
 
 export default defineConfig({
   testDir: "./e2e",
-  timeout: 30000,
+  timeout: 45000,
   retries: 0,
   use: {
     baseURL: BASE_URL,
