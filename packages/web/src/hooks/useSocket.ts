@@ -38,7 +38,10 @@ export function useSocket() {
         reconnectionAttempts: 5,
       });
 
+      console.log("[Socket] connecting to", WS_URL);
+
       socket.on("connect", () => {
+        console.log("[Socket] connected ✓");
         setIsConnected(true);
         const conversationIds = useChatStore.getState().conversations.map((c) => c.id);
         if (conversationIds.length > 0) {
@@ -46,7 +49,8 @@ export function useSocket() {
         }
       });
 
-      socket.on("disconnect", () => {
+      socket.on("disconnect", (reason) => {
+        console.log("[Socket] disconnected:", reason);
         setIsConnected(false);
       });
 
