@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { UserAvatar } from "./UserAvatar";
 import { Icons } from "./Icons";
+import { apiFetch } from "@/lib/api-client";
 import type { User } from "@chat-app/shared";
 
 interface SearchUsersProps {
@@ -35,7 +36,7 @@ export function SearchUsers({ onClose }: SearchUsersProps) {
   }, []);
 
   async function startChat(userId: string) {
-    const res = await fetch("/api/conversations", {
+    const res = await apiFetch("/api/conversations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ type: "DIRECT", participantIds: [userId] }),

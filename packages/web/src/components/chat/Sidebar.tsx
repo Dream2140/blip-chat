@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useChatStore } from "@/stores/chat-store";
+import { apiFetch } from "@/lib/api-client";
 import { ConversationItem } from "./ConversationItem";
 import { UserAvatar } from "./UserAvatar";
 import { NewGroupModal } from "./NewGroupModal";
@@ -23,7 +24,7 @@ export function Sidebar() {
   const [query, setQuery] = useState("");
 
   async function handleLogout() {
-    await fetch("/api/auth/logout", { method: "POST" });
+    await apiFetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
     router.refresh();
   }
@@ -32,7 +33,7 @@ export function Sidebar() {
   useEffect(() => {
     if (tab !== "people") return;
     setLoadingUsers(true);
-    fetch("/api/users/all")
+    apiFetch("/api/users/all")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.users) setAllUsers(data.users);
@@ -41,7 +42,7 @@ export function Sidebar() {
   }, [tab]);
 
   async function startDirectChat(userId: string) {
-    const res = await fetch("/api/conversations", {
+    const res = await apiFetch("/api/conversations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ type: "DIRECT", participantIds: [userId] }),

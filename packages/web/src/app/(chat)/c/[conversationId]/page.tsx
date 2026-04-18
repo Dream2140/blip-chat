@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { useChatStore } from "@/stores/chat-store";
+import { apiFetch } from "@/lib/api-client";
 import { MessageList } from "@/components/chat/MessageList";
 import { MessageInput } from "@/components/chat/MessageInput";
 import { ConversationHeader } from "@/components/chat/ConversationHeader";
@@ -47,7 +48,7 @@ export default function ConversationPage() {
           .conversations.some((c) => c.id === conversationId);
 
         if (!hasConvo) {
-          const res = await fetch(`/api/conversations/${conversationId}`);
+          const res = await apiFetch(`/api/conversations/${conversationId}`);
           if (!res.ok) throw new Error("Conversation not found");
           const data = await res.json();
           if (data?.conversation) {

@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { UserAvatar } from "./UserAvatar";
 import { Icons } from "./Icons";
+import { apiFetch } from "@/lib/api-client";
 import type { User } from "@chat-app/shared";
 
 interface NewGroupModalProps {
@@ -46,7 +47,7 @@ export function NewGroupModal({ onClose }: NewGroupModalProps) {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/conversations", {
+      const res = await apiFetch("/api/conversations", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

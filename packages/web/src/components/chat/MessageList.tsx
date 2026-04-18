@@ -1,27 +1,125 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useChatStore } from "@/stores/chat-store";
+import { apiFetch } from "@/lib/api-client";
 import { MessageBubble } from "./MessageBubble";
 import type { Message } from "@chat-app/shared";
+
+const EMPTY_MESSAGES: Message[] = [];
 
 interface MessageListProps {
   conversationId: string;
   messages: Message[];
 }
 
-export function MessageList({ messages }: MessageListProps) {
+export function MessageList({ conversationId, messages }: MessageListProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const currentUser = useChatStore((s) => s.currentUser);
+  const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const prevMsgCount = useRef(0);
 
+  // Auto-scroll to bottom on new messages (only if already near bottom)
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const isNearBottom =
+      el.scrollHeight - el.scrollTop - el.clientHeight < 150;
+    const isNewMessage = messages.length > prevMsgCount.current;
+    prevMsgCount.current = messages.length;
+
+    if (isNearBottom || isNewMessage) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages.length]);
+
+  // Track scroll position for "scroll to bottom" button
+  const handleScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    setShowScrollBtn(distFromBottom > 300);
+  }, []);
+
+  // Infinite scroll up — load older messages
+  const loadOlder = useCallback(async () => {
+    if (loadingOlder || !hasMore || messages.length === 0) return;
+    setLoadingOlder(true);
+
+    const oldestMsg = messages[0];
+    if (!oldestMsg) {
+      setLoadingOlder(false);
+      return;
+    }
+
+    try {
+      const res = await apiFetch(
+        `/api/conversations/${conversationId}/messages?limit=30&cursor=${encodeURIComponent(oldestMsg.createdAt)}`
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+
+      if (data?.items?.length > 0) {
+        const store = useChatStore.getState();
+        const current = store.messagesByConversation[conversationId] ?? EMPTY_MESSAGES;
+        // Prepend older messages, dedup by id
+        const existingIds = new Set(current.map((m) => m.id));
+        const newMsgs = data.items.filter(
+          (m: Message) => !existingIds.has(m.id)
+        );
+        store.setMessages(conversationId, [...newMsgs, ...current]);
+      }
+
+      setHasMore(data.hasMore);
+    } catch {
+    } finally {
+      setLoadingOlder(false);
+    }
+  }, [conversationId, loadingOlder, hasMore, messages]);
+
+  const handleScrollEvent = useCallback(() => {
+    handleScroll();
+    const el = scrollRef.current;
+    if (el && el.scrollTop < 100 && hasMore) {
+      loadOlder();
+    }
+  }, [handleScroll, hasMore, loadOlder]);
+
+  function scrollToBottom() {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }
+
+  // Reset hasMore when conversation changes
+  useEffect(() => {
+    setHasMore(true);
+  }, [conversationId]);
 
   let lastDay = "";
 
   return (
-    <div className="messages">
+    <div
+      className="messages"
+      ref={scrollRef}
+      onScroll={handleScrollEvent}
+    >
+      {loadingOlder && (
+        <div
+          style={{
+            textAlign: "center",
+            padding: 12,
+            color: "var(--ink-3)",
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+          }}
+        >
+          loading older messages…
+        </div>
+      )}
+
       {messages.length === 0 ? (
         <div className="empty-state">
           <div>
@@ -68,7 +166,34 @@ export function MessageList({ messages }: MessageListProps) {
           );
         })
       )}
+
       <div ref={bottomRef} />
+
+      {/* Scroll to bottom button */}
+      {showScrollBtn && (
+        <button
+          onClick={scrollToBottom}
+          style={{
+            position: "sticky",
+            bottom: 8,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "var(--bg-elev)",
+            border: "1px solid var(--line)",
+            borderRadius: 999,
+            padding: "8px 16px",
+            fontSize: 12,
+            fontWeight: 600,
+            color: "var(--primary)",
+            boxShadow: "var(--shadow-card)",
+            cursor: "pointer",
+            zIndex: 10,
+            animation: "pop-in 0.2s ease",
+          }}
+        >
+          ↓ new messages
+        </button>
+      )}
     </div>
   );
 }

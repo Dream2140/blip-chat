@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useChatStore } from "@/stores/chat-store";
+import { apiFetch } from "@/lib/api-client";
+import { useToast } from "./Toast";
 import { Icons } from "./Icons";
 
 interface MessageInputProps {
@@ -11,6 +13,7 @@ interface MessageInputProps {
 export function MessageInput({ conversationId }: MessageInputProps) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const showToast = useToast((s) => s.show);
 
   async function handleSend() {
     const trimmed = text.trim();
@@ -18,10 +21,13 @@ export function MessageInput({ conversationId }: MessageInputProps) {
 
     setSending(true);
 
-    const currentUser = useChatStore.getState().currentUser;
+    const store = useChatStore.getState();
+    const currentUser = store.currentUser;
     const tempId = `temp-${Date.now()}`;
+
+    // Optimistic: add temp message
     if (currentUser) {
-      useChatStore.getState().addMessage(conversationId, {
+      store.addMessage(conversationId, {
         id: tempId,
         conversationId,
         senderId: currentUser.id,
@@ -39,13 +45,33 @@ export function MessageInput({ conversationId }: MessageInputProps) {
     setText("");
 
     try {
-      await fetch(`/api/conversations/${conversationId}/messages`, {
+      const res = await apiFetch(`/api/conversations/${conversationId}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ text: trimmed }),
       });
-    } catch (err) {
-      console.error("Failed to send message:", err);
+
+      if (!res.ok) {
+        // Remove temp message on failure
+        const msgs = useChatStore.getState().messagesByConversation[conversationId] || [];
+        useChatStore.getState().setMessages(
+          conversationId,
+          msgs.filter((m) => m.id !== tempId)
+        );
+        showToast("Failed to send message");
+        return;
+      }
+
+      const data = await res.json();
+
+      // Replace temp message with real one (dedup)
+      const currentMsgs = useChatStore.getState().messagesByConversation[conversationId] || [];
+      useChatStore.getState().setMessages(
+        conversationId,
+        currentMsgs.map((m) => (m.id === tempId ? data.message : m))
+      );
+    } catch {
+      showToast("Network error — message not sent");
     } finally {
       setSending(false);
     }

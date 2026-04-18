@@ -3,7 +3,9 @@
 import { useEffect, useRef, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { useChatStore } from "@/stores/chat-store";
+import { apiFetch } from "@/lib/api-client";
 import { Sidebar } from "@/components/chat/Sidebar";
+import { ToastContainer } from "@/components/chat/Toast";
 import "@/app/chat.css";
 
 export default function ChatLayout({
@@ -17,7 +19,7 @@ export default function ChatLayout({
 
   const fetchConversations = useCallback(async () => {
     try {
-      const res = await fetch("/api/conversations");
+      const res = await apiFetch("/api/conversations");
       if (!res.ok) return;
       const data = await res.json();
       if (data?.items) {
@@ -30,7 +32,7 @@ export default function ChatLayout({
     if (initialized.current) return;
     initialized.current = true;
 
-    fetch("/api/users/me")
+    apiFetch("/api/users/me")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data?.user) useChatStore.getState().setCurrentUser(data.user);
@@ -50,6 +52,7 @@ export default function ChatLayout({
     <div className={`app-shell ${hasActiveChat ? "has-active-chat" : ""}`}>
       <Sidebar />
       <main className="chat-panel">{children}</main>
+      <ToastContainer />
     </div>
   );
 }
