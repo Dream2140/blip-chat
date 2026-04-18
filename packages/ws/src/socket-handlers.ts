@@ -73,6 +73,7 @@ export function registerSocketHandlers(
 
   // Call signaling — use rooms (works across Redis-connected instances)
   socket.on(SocketEvents.CALL_INITIATE, ({ targetUserId }) => {
+    console.log(`[Call] ${userId} → ${targetUserId} (initiate)`);
     io.to(`user:${targetUserId}`).emit(SocketEvents.CALL_INITIATE, {
       callerId: userId,
       callerNickname: socket.data.nickname,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useCallback } from "react";
+import { useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 import { SocketEvents } from "@chat-app/shared";
 import type { ServerToClientEvents, ClientToServerEvents } from "@chat-app/shared";
@@ -11,20 +11,22 @@ type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "wss://blip-chat-ws.fly.dev";
 
+// Module-level refs — shared across all useSocket() instances
+let globalSocket: TypedSocket | null = null;
+let globalConnecting = false;
+
 export function useSocket() {
-  const socketRef = useRef<TypedSocket | null>(null);
-  const connectingRef = useRef(false);
   const isConnected = useChatStore((s) => s.socketConnected);
 
   const connect = useCallback(async () => {
-    if (socketRef.current?.connected || connectingRef.current) return;
-    connectingRef.current = true;
+    if (globalSocket?.connected || globalConnecting) return;
+    globalConnecting = true;
 
     try {
       // Use apiFetch for token refresh support
       const res = await apiFetch("/api/auth/socket-token", { method: "POST" });
       if (!res.ok) {
-        connectingRef.current = false;
+        globalConnecting = false;
         return;
       }
       const { token } = await res.json();
@@ -169,31 +171,31 @@ export function useSocket() {
         if (handler) handler(data);
       }) as never);
 
-      socketRef.current = socket;
+      globalSocket = socket;
     } catch (err) {
       console.error("[Socket] connection failed:", err);
     } finally {
-      connectingRef.current = false;
+      globalConnecting = false;
     }
   }, []);
 
   const disconnect = useCallback(() => {
-    socketRef.current?.disconnect();
-    socketRef.current = null;
+    globalSocket?.disconnect();
+    globalSocket = null;
     useChatStore.getState().setSocketConnected(false);
   }, []);
 
   const emitTypingStart = useCallback((conversationId: string) => {
-    socketRef.current?.emit(SocketEvents.TYPING_START, { conversationId });
+    globalSocket?.emit(SocketEvents.TYPING_START, { conversationId });
   }, []);
 
   const emitTypingStop = useCallback((conversationId: string) => {
-    socketRef.current?.emit(SocketEvents.TYPING_STOP, { conversationId });
+    globalSocket?.emit(SocketEvents.TYPING_STOP, { conversationId });
   }, []);
 
   const emitMessagesRead = useCallback(
     (conversationId: string, lastMessageId: string) => {
-      socketRef.current?.emit(SocketEvents.MESSAGES_READ, {
+      globalSocket?.emit(SocketEvents.MESSAGES_READ, {
         conversationId,
         lastMessageId,
       });
@@ -206,7 +208,7 @@ export function useSocket() {
     []
   );
 
-  const getSocket = useCallback(() => socketRef.current, []);
+  const getSocket = useCallback(() => globalSocket, []);
 
   return {
     connect,
