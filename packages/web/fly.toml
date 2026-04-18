@@ -1,8 +1,8 @@
-app = "chat-app-web"
+app = "blip-chat-web"
 primary_region = "ams"
 
 [build]
-  dockerfile = "Dockerfile"
+  dockerfile = "packages/web/Dockerfile"
 
 [http_service]
   internal_port = 3000
