@@ -28,8 +28,8 @@ async function getRedis(): Promise<import("ioredis").default | null> {
     lazyConnect: true,
   });
 
-  redisClient.on("error", () => {
-    // Silently handle Redis errors — app works without it
+  redisClient.on("error", (err) => {
+    console.error("[Redis]", err.message);
   });
 
   if (process.env.NODE_ENV !== "production") {

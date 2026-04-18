@@ -98,6 +98,7 @@ model Message {
   reactions    Reaction[]
 
   @@index([conversationId, createdAt])
+  @@index([conversationId, senderId, deletedAt])
   @@index([senderId])
   @@index([replyToId])
 }

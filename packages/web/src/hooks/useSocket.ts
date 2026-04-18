@@ -30,6 +30,10 @@ export function useSocket() {
       const socket: TypedSocket = io(WS_URL, {
         auth: { token },
         transports: ["websocket"],
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 10000,
+        reconnectionAttempts: 10,
       });
 
       socket.on("connect", () => {
@@ -45,6 +49,10 @@ export function useSocket() {
       });
 
       socket.on(SocketEvents.MESSAGE_NEW, (data) => {
+        // Dedup: skip if message already in store (from optimistic update or HTTP)
+        const existing = useChatStore.getState().messagesByConversation[data.conversationId];
+        if (existing?.some((m) => m.id === data.id)) return;
+
         useChatStore.getState().addMessage(data.conversationId, {
           id: data.id,
           conversationId: data.conversationId,

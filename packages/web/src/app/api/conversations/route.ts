@@ -47,22 +47,27 @@ export async function GET(request: NextRequest) {
       orderBy: { updatedAt: "desc" },
     });
 
-    // Calculate unread counts
-    const items = await Promise.all(
-      conversations.map(async (c) => {
-        const lastMessage = c.messages[0] || null;
-
-        // Count messages not sent by me that I haven't read
-        const unreadCount = await prisma.message.count({
+    // Batch unread counts in ONE query instead of N+1
+    const convoIds = conversations.map((c) => c.id);
+    const unreadCounts = convoIds.length > 0
+      ? await prisma.message.groupBy({
+          by: ["conversationId"],
           where: {
-            conversationId: c.id,
+            conversationId: { in: convoIds },
             senderId: { not: auth.userId },
             deletedAt: null,
-            readReceipts: {
-              none: { userId: auth.userId },
-            },
+            readReceipts: { none: { userId: auth.userId } },
           },
-        });
+          _count: true,
+        })
+      : [];
+    const unreadMap = new Map(
+      unreadCounts.map((u) => [u.conversationId, u._count])
+    );
+
+    const items = conversations.map((c) => {
+        const lastMessage = c.messages[0] || null;
+        const unreadCount = unreadMap.get(c.id) || 0;
 
         return {
           id: c.id,
@@ -95,8 +100,7 @@ export async function GET(request: NextRequest) {
             : null,
           unreadCount,
         };
-      })
-    );
+      });
 
     return NextResponse.json({ items });
   });

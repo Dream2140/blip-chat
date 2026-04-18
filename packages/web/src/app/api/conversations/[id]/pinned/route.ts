@@ -37,6 +37,7 @@ export async function GET(
         sender: { select: userSelect },
       },
       orderBy: { pinnedAt: "desc" },
+      take: 50,
     });
 
     const items = messages.map((m) => ({

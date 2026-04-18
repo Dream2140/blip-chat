@@ -17,7 +17,7 @@ export default function ChatLayout({
   const pathname = usePathname();
   const hasActiveChat = pathname.startsWith("/c/");
   const initialized = useRef(false);
-  const { connect, disconnect } = useSocket();
+  const { connect, disconnect, isConnected } = useSocket();
 
   const fetchConversations = useCallback(async () => {
     try {
@@ -80,8 +80,6 @@ export default function ChatLayout({
       .catch(() => {});
 
     fetchConversations();
-
-    // Connect WebSocket for real-time
     connect();
 
     return () => {
@@ -89,11 +87,12 @@ export default function ChatLayout({
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fallback poll: every 60s (not 5s!) — WebSocket handles real-time
+  // Fallback poll ONLY when WebSocket is disconnected
   useEffect(() => {
-    const interval = setInterval(fetchConversations, 60000);
+    if (isConnected) return; // WebSocket handles real-time — no polling needed
+    const interval = setInterval(fetchConversations, 30000);
     return () => clearInterval(interval);
-  }, [fetchConversations]);
+  }, [isConnected, fetchConversations]);
 
   return (
     <div className={`app-shell ${hasActiveChat ? "has-active-chat" : ""}`}>
