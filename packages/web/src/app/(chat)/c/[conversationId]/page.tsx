@@ -31,6 +31,19 @@ export default function ConversationPage() {
       const data = await res.json();
       if (data?.items) {
         useChatStore.getState().setMessages(conversationId, data.items);
+
+        // Mark as read: find the last message not sent by me
+        const currentUserId = useChatStore.getState().currentUser?.id;
+        const lastOtherMsg = [...data.items]
+          .reverse()
+          .find((m: Message) => m.senderId !== currentUserId && !m.deletedAt);
+        if (lastOtherMsg) {
+          apiFetch(`/api/conversations/${conversationId}/read`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ lastMessageId: lastOtherMsg.id }),
+          }).catch(() => {});
+        }
       }
     } catch {}
   }, [conversationId]);
