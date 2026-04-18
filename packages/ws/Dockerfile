@@ -21,15 +21,18 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=8080
 
-COPY --from=base /app/packages/ws/package.json ./
+# Copy everything needed — node_modules has the workspace symlinks intact
 COPY --from=base /app/node_modules ./node_modules
-COPY --from=base /app/packages/ws/dist ./dist
-COPY --from=base /app/packages/shared/dist ./node_modules/@chat-app/shared/dist
-COPY --from=base /app/packages/shared/package.json ./node_modules/@chat-app/shared/package.json
+COPY --from=base /app/packages/ws/dist ./packages/ws/dist
+COPY --from=base /app/packages/ws/package.json ./packages/ws/package.json
+COPY --from=base /app/packages/shared/dist ./packages/shared/dist
+COPY --from=base /app/packages/shared/package.json ./packages/shared/package.json
+COPY --from=base /app/package.json ./package.json
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 wsuser
 USER wsuser
 
 EXPOSE 8080
+WORKDIR /app/packages/ws
 CMD ["node", "dist/index.js"]
