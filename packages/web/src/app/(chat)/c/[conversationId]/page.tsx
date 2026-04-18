@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import { useChatStore } from "@/stores/chat-store";
 import { apiFetch } from "@/lib/api-client";
-import { useSocket } from "@/hooks/useSocket";
 import { MessageList } from "@/components/chat/MessageList";
 import { MessageInput } from "@/components/chat/MessageInput";
 import { ConversationHeader } from "@/components/chat/ConversationHeader";
@@ -19,7 +18,7 @@ export default function ConversationPage() {
   const [error, setError] = useState("");
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const markedReadRef = useRef(false);
-  const { isConnected } = useSocket();
+  const isConnected = useChatStore((s) => s.socketConnected);
 
   const messages = useChatStore(
     (s) => s.messagesByConversation[conversationId] ?? EMPTY_MESSAGES

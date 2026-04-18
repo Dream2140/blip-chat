@@ -29,6 +29,9 @@ interface ChatStore {
   typingUsers: Record<string, string[]>;
   setUserTyping: (conversationId: string, userId: string) => void;
   clearUserTyping: (conversationId: string, userId: string) => void;
+
+  socketConnected: boolean;
+  setSocketConnected: (v: boolean) => void;
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
@@ -130,4 +133,7 @@ export const useChatStore = create<ChatStore>((set, get) => ({
         },
       };
     }),
+
+  socketConnected: false,
+  setSocketConnected: (v) => set({ socketConnected: v }),
 }));

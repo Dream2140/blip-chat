@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 import { SocketEvents } from "@chat-app/shared";
 import type { ServerToClientEvents, ClientToServerEvents } from "@chat-app/shared";
@@ -13,8 +13,8 @@ const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "wss://blip-chat-ws.fly.dev";
 
 export function useSocket() {
   const socketRef = useRef<TypedSocket | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
   const connectingRef = useRef(false);
+  const isConnected = useChatStore((s) => s.socketConnected);
 
   const connect = useCallback(async () => {
     if (socketRef.current?.connected || connectingRef.current) return;
@@ -42,7 +42,7 @@ export function useSocket() {
 
       socket.on("connect", () => {
         console.log("[Socket] connected ✓");
-        setIsConnected(true);
+        useChatStore.getState().setSocketConnected(true);
         const conversationIds = useChatStore.getState().conversations.map((c) => c.id);
         if (conversationIds.length > 0) {
           socket.emit(SocketEvents.JOIN_CONVERSATIONS, { conversationIds });
@@ -51,12 +51,12 @@ export function useSocket() {
 
       socket.on("disconnect", (reason) => {
         console.log("[Socket] disconnected:", reason);
-        setIsConnected(false);
+        useChatStore.getState().setSocketConnected(false);
       });
 
       socket.on("connect_error", (err) => {
         console.error("[Socket] connect error:", err.message);
-        setIsConnected(false);
+        useChatStore.getState().setSocketConnected(false);
       });
 
       // MESSAGE_NEW — skip own messages (sender has optimistic update already)
@@ -136,7 +136,7 @@ export function useSocket() {
   const disconnect = useCallback(() => {
     socketRef.current?.disconnect();
     socketRef.current = null;
-    setIsConnected(false);
+    useChatStore.getState().setSocketConnected(false);
   }, []);
 
   const emitTypingStart = useCallback((conversationId: string) => {

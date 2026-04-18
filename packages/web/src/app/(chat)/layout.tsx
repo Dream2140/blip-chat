@@ -17,7 +17,8 @@ export default function ChatLayout({
   const pathname = usePathname();
   const hasActiveChat = pathname.startsWith("/c/");
   const initialized = useRef(false);
-  const { connect, disconnect, isConnected } = useSocket();
+  const { connect, disconnect } = useSocket();
+  const isConnected = useChatStore((s) => s.socketConnected);
 
   const fetchConversations = useCallback(async () => {
     try {
