@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
-import { useSocket } from "@/hooks/useSocket";
+import { useState } from "react";
 import { useChatStore } from "@/stores/chat-store";
 import { Icons } from "./Icons";
 
@@ -12,38 +11,17 @@ interface MessageInputProps {
 export function MessageInput({ conversationId }: MessageInputProps) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
-  const typingTimeout = useRef<NodeJS.Timeout | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const { emitTypingStart, emitTypingStop } = useSocket();
-  const addMessage = useChatStore((s) => s.addMessage);
-  const currentUser = useChatStore((s) => s.currentUser);
-
-  const conversation = useChatStore((s) =>
-    s.conversations.find((c) => c.id === conversationId)
-  );
-  const otherParticipant = conversation?.participants.find(
-    (p) => p.userId !== currentUser?.id
-  );
-  const placeholderName = otherParticipant?.user.nickname || "someone";
-
-  const handleTyping = useCallback(() => {
-    emitTypingStart(conversationId);
-    if (typingTimeout.current) clearTimeout(typingTimeout.current);
-    typingTimeout.current = setTimeout(() => {
-      emitTypingStop(conversationId);
-    }, 2000);
-  }, [conversationId, emitTypingStart, emitTypingStop]);
 
   async function handleSend() {
     const trimmed = text.trim();
     if (!trimmed || sending) return;
 
     setSending(true);
-    emitTypingStop(conversationId);
 
+    const currentUser = useChatStore.getState().currentUser;
     const tempId = `temp-${Date.now()}`;
     if (currentUser) {
-      addMessage(conversationId, {
+      useChatStore.getState().addMessage(conversationId, {
         id: tempId,
         conversationId,
         senderId: currentUser.id,
@@ -84,20 +62,13 @@ export function MessageInput({ conversationId }: MessageInputProps) {
     <div className="composer-wrap">
       <div className="composer">
         <textarea
-          ref={textareaRef}
           value={text}
-          onChange={(e) => {
-            setText(e.target.value);
-            handleTyping();
-          }}
+          onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={`message ${placeholderName}…`}
+          placeholder="message…"
           rows={1}
         />
         <div className="composer-actions">
-          <button className="icon-btn" title="Attach">
-            <Icons.Paperclip />
-          </button>
           <button className="icon-btn" title="Emoji">
             <Icons.Smile />
           </button>

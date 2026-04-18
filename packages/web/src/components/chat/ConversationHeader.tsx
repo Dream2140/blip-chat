@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useChatStore } from "@/stores/chat-store";
 import { UserAvatar } from "./UserAvatar";
-import { ThemeToggle } from "./ThemeToggle";
 import { Icons } from "./Icons";
 
 interface ConversationHeaderProps {
@@ -15,8 +14,6 @@ export function ConversationHeader({ conversationId }: ConversationHeaderProps) 
     s.conversations.find((c) => c.id === conversationId)
   );
   const currentUser = useChatStore((s) => s.currentUser);
-  const onlineUserIds = useChatStore((s) => s.onlineUserIds);
-  const typingUsers = useChatStore((s) => s.typingUsers[conversationId] || []);
 
   if (!conversation) return null;
 
@@ -30,50 +27,24 @@ export function ConversationHeader({ conversationId }: ConversationHeaderProps) 
       ? conversation.name || "Group Chat"
       : otherParticipant?.user.nickname || "Unknown";
 
-  const isOnline = otherParticipant
-    ? !!onlineUserIds[otherParticipant.userId]
-    : false;
-
-  const isTyping = typingUsers.length > 0;
-
   return (
     <header className="chat-header">
       <Link href="/" className="icon-btn mobile-back" style={{ textDecoration: "none" }}>
         ←
       </Link>
-      <UserAvatar
-        name={displayName}
-        isOnline={conversation.type === "DIRECT" ? isOnline : undefined}
-      />
+      <UserAvatar name={displayName} />
       <div>
         <div className="chat-title">{displayName}</div>
         <div className="chat-sub">
-          {isTyping ? (
-            <>typing…</>
-          ) : conversation.type === "DIRECT" ? (
-            isOnline ? (
-              <>
-                <span className="dot" /> active now
-              </>
-            ) : (
-              <>offline</>
-            )
-          ) : (
-            <>{conversation.participants.length} members</>
-          )}
+          {conversation.type === "GROUP"
+            ? `${conversation.participants.length} members`
+            : "tap for info"}
         </div>
       </div>
       <div className="header-spacer" />
-      <ThemeToggle />
-      <button className="icon-btn">
-        <Icons.Phone />
-      </button>
-      <button className="icon-btn">
-        <Icons.Video />
-      </button>
-      <button className="icon-btn">
-        <Icons.More />
-      </button>
+      <button className="icon-btn"><Icons.Phone /></button>
+      <button className="icon-btn"><Icons.Video /></button>
+      <button className="icon-btn"><Icons.More /></button>
     </header>
   );
 }

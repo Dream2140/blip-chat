@@ -12,8 +12,6 @@ interface ConversationItemProps {
 export function ConversationItem({ conversation }: ConversationItemProps) {
   const activeConversationId = useChatStore((s) => s.activeConversationId);
   const currentUser = useChatStore((s) => s.currentUser);
-  const onlineUserIds = useChatStore((s) => s.onlineUserIds);
-  const typingUsers = useChatStore((s) => s.typingUsers[conversation.id] || []);
   const isActive = activeConversationId === conversation.id;
 
   const otherParticipant =
@@ -26,11 +24,6 @@ export function ConversationItem({ conversation }: ConversationItemProps) {
       ? conversation.name || "Group Chat"
       : otherParticipant?.user.nickname || "Unknown";
 
-  const isOnline = otherParticipant
-    ? !!onlineUserIds[otherParticipant.userId]
-    : false;
-
-  const isTyping = typingUsers.length > 0;
   const lastMessage = conversation.lastMessage;
 
   return (
@@ -38,10 +31,7 @@ export function ConversationItem({ conversation }: ConversationItemProps) {
       href={`/c/${conversation.id}`}
       className={`convo ${isActive ? "active" : ""}`}
     >
-      <UserAvatar
-        name={displayName}
-        isOnline={conversation.type === "DIRECT" ? isOnline : undefined}
-      />
+      <UserAvatar name={displayName} />
 
       <div className="convo-body">
         <div className="convo-row">
@@ -50,22 +40,20 @@ export function ConversationItem({ conversation }: ConversationItemProps) {
             <span className="convo-time">{formatTime(lastMessage.createdAt)}</span>
           )}
         </div>
-        <div className={`convo-last ${isTyping ? "typing-text" : ""}`}>
-          {isTyping
-            ? "typing…"
-            : lastMessage
-              ? lastMessage.deletedAt
-                ? "message deleted"
-                : lastMessage.text
-              : "start a conversation"}
+        <div className="convo-last">
+          {lastMessage
+            ? lastMessage.deletedAt
+              ? "message deleted"
+              : lastMessage.text
+            : "start a conversation"}
         </div>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
-        {conversation.unreadCount > 0 && (
+      {conversation.unreadCount > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
           <div className="convo-badge">{conversation.unreadCount}</div>
-        )}
-      </div>
+        </div>
+      )}
     </Link>
   );
 }
@@ -73,15 +61,11 @@ export function ConversationItem({ conversation }: ConversationItemProps) {
 function formatTime(iso: string): string {
   const date = new Date(iso);
   const now = new Date();
-  const isToday = date.toDateString() === now.toDateString();
-
-  if (isToday) {
+  if (date.toDateString() === now.toDateString()) {
     return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   }
-
   const diff = now.getTime() - date.getTime();
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-
   if (days === 1) return "yesterday";
   if (days < 7) return `${days}d`;
   return `${Math.floor(days / 7)}w`;
