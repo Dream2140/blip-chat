@@ -4,6 +4,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { useChatStore } from "@/stores/chat-store";
 import { apiFetch } from "@/lib/api-client";
+import { useSocket } from "@/hooks/useSocket";
 import { Sidebar } from "@/components/chat/Sidebar";
 import { ToastContainer } from "@/components/chat/Toast";
 import "@/app/chat.css";
@@ -16,6 +17,7 @@ export default function ChatLayout({
   const pathname = usePathname();
   const hasActiveChat = pathname.startsWith("/c/");
   const initialized = useRef(false);
+  const { connect, disconnect } = useSocket();
 
   const fetchConversations = useCallback(async () => {
     try {
@@ -78,11 +80,18 @@ export default function ChatLayout({
       .catch(() => {});
 
     fetchConversations();
-  }, [fetchConversations]);
 
-  // Poll conversations every 5 seconds for sidebar updates
+    // Connect WebSocket for real-time
+    connect();
+
+    return () => {
+      disconnect();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Fallback poll: every 60s (not 5s!) — WebSocket handles real-time
   useEffect(() => {
-    const interval = setInterval(fetchConversations, 5000);
+    const interval = setInterval(fetchConversations, 60000);
     return () => clearInterval(interval);
   }, [fetchConversations]);
 
