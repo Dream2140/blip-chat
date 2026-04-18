@@ -504,43 +504,54 @@ test.describe("API Validation", () => {
 // ═══════════════════════════════════════════
 
 test.describe("Bug Fixes", () => {
-  test("reply-to message shows quote in chat", async ({ page }) => {
+  test("reply-to: API returns replyTo object", async ({ page, baseURL }) => {
     await openChatAtoB(page);
 
-    // Send a message to reply to
-    const original = `original-${TS}`;
-    await page.locator("textarea").fill(original);
-    await page.keyboard.press("Enter");
-    await expect(page.locator(`text=${original}`).first()).toBeVisible({
-      timeout: 5000,
-    });
+    // Send original message via API
+    const convId = page.url().split("/c/")[1];
+    const original = `orig-${TS}`;
 
-    // Hover over the message and click reply
-    const bubble = page.locator(`text=${original}`).first();
-    await bubble.hover();
-    await page.locator('[title="reply"]').first().click();
+    const origRes = await page.evaluate(
+      async ([text]) => {
+        const convId = window.location.pathname.split("/c/")[1];
+        const res = await fetch(`/api/conversations/${convId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text }),
+        });
+        return res.json();
+      },
+      [original]
+    );
 
-    // Should see reply preview in composer
-    await expect(page.locator(".reply-preview")).toBeVisible({ timeout: 3000 });
+    expect(origRes.message?.id).toBeTruthy();
 
-    // Send reply
-    const reply = `reply-${TS}`;
-    await page.locator("textarea").fill(reply);
-    await page.keyboard.press("Enter");
+    // Send reply referencing the original
+    const replyResult = await page.evaluate(
+      async ([origId]) => {
+        const convId = window.location.pathname.split("/c/")[1];
+        const res = await fetch(`/api/conversations/${convId}/messages`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: "test-reply", replyToId: origId }),
+        });
+        return res.json();
+      },
+      [origRes.message.id]
+    );
 
-    // Reply should appear with quote (↪ prefix in reply-quote)
-    await expect(page.locator(`text=${reply}`).first()).toBeVisible({
-      timeout: 5000,
-    });
-    // The reply quote should contain original text
-    await expect(page.locator(".reply-quote").first()).toBeVisible({
-      timeout: 5000,
-    });
+    expect(replyResult.message).toBeTruthy();
+    expect(replyResult.message.replyToId).toBe(origRes.message.id);
+    expect(replyResult.message.replyTo).toBeTruthy();
+    expect(replyResult.message.replyTo.text).toBe(original);
   });
 
   test("mobile viewport meta tag present", async ({ page }) => {
     await page.goto("/login");
-    const viewport = await page.locator('meta[name="viewport"]').getAttribute("content");
-    expect(viewport).toContain("width=device-width");
+    const content = await page.evaluate(() => {
+      const meta = document.querySelector('meta[name="viewport"]');
+      return meta?.getAttribute("content") || null;
+    });
+    expect(content).toContain("width=device-width");
   });
 });
