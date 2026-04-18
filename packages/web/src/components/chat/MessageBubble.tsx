@@ -1,24 +1,30 @@
 "use client";
 
+import { useChatStore } from "@/stores/chat-store";
+import { apiFetch } from "@/lib/api-client";
 import { UserAvatar } from "./UserAvatar";
-import type { Message } from "@chat-app/shared";
+import type { Message, MessageReaction } from "@chat-app/shared";
 
 interface MessageBubbleProps {
   message: Message;
   isOwn: boolean;
   showAvatar: boolean;
   stackClass: string;
+  onReply?: (message: Message) => void;
 }
 
-export function MessageBubble({ message, isOwn, showAvatar, stackClass }: MessageBubbleProps) {
+export function MessageBubble({
+  message,
+  isOwn,
+  showAvatar,
+  stackClass,
+  onReply,
+}: MessageBubbleProps) {
   if (message.deletedAt) {
     return (
       <div className={`msg-row ${isOwn ? "me" : ""}`}>
         <div className="msg-group">
-          <div
-            className="bubble"
-            style={{ fontStyle: "italic", opacity: 0.5 }}
-          >
+          <div className="bubble" style={{ fontStyle: "italic", opacity: 0.5 }}>
             message deleted
           </div>
         </div>
@@ -38,13 +44,32 @@ export function MessageBubble({ message, isOwn, showAvatar, stackClass }: Messag
         ? "✓✓"
         : "✓ sent";
 
+  async function toggleReaction(emoji: string) {
+    const res = await apiFetch(`/api/messages/${message.id}/reactions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ emoji }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      // Update message reactions in store
+      useChatStore.getState().updateMessage(
+        message.conversationId,
+        message.id,
+        { reactions: data.reactions }
+      );
+    }
+  }
+
+  const reactions = message.reactions || [];
+
   return (
-    <div className={`msg-row ${isOwn ? "me" : ""} ${showAvatar ? "show-avatar" : ""}`}>
+    <div
+      className={`msg-row ${isOwn ? "me" : ""} ${showAvatar ? "show-avatar" : ""}`}
+    >
       {!isOwn && (
-        <UserAvatar
-          name={message.sender?.nickname || "?"}
-          size="sm"
-        />
+        <UserAvatar name={message.sender?.nickname || "?"} size="sm" />
       )}
       <div className="msg-group">
         <div className="bubble-wrap">
@@ -62,13 +87,38 @@ export function MessageBubble({ message, isOwn, showAvatar, stackClass }: Messag
           <div className={`bubble ${stackClass}`}>
             {message.text}
             <div className="hover-actions">
-              <button title="heart">❤️</button>
-              <button title="laugh">😂</button>
-              <button title="fire">🔥</button>
-              <button title="reply">↩</button>
+              <button onClick={() => toggleReaction("❤️")} title="heart">
+                ❤️
+              </button>
+              <button onClick={() => toggleReaction("😂")} title="laugh">
+                😂
+              </button>
+              <button onClick={() => toggleReaction("🔥")} title="fire">
+                🔥
+              </button>
+              {onReply && (
+                <button onClick={() => onReply(message)} title="reply">
+                  ↩
+                </button>
+              )}
             </div>
           </div>
         </div>
+
+        {reactions.length > 0 && (
+          <div className="reactions">
+            {reactions.map((r: MessageReaction) => (
+              <button
+                key={r.emoji}
+                className={`reaction-chip ${r.byMe ? "by-me" : ""}`}
+                onClick={() => toggleReaction(r.emoji)}
+              >
+                <span>{r.emoji}</span>
+                {r.count > 1 && <span className="count">{r.count}</span>}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="meta">
           <span>{time}</span>

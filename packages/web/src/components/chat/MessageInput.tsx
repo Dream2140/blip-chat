@@ -5,12 +5,19 @@ import { useChatStore } from "@/stores/chat-store";
 import { apiFetch } from "@/lib/api-client";
 import { useToast } from "./Toast";
 import { Icons } from "./Icons";
+import type { Message } from "@chat-app/shared";
 
 interface MessageInputProps {
   conversationId: string;
+  replyTo?: Message | null;
+  onClearReply?: () => void;
 }
 
-export function MessageInput({ conversationId }: MessageInputProps) {
+export function MessageInput({
+  conversationId,
+  replyTo,
+  onClearReply,
+}: MessageInputProps) {
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
   const showToast = useToast((s) => s.show);
@@ -25,7 +32,6 @@ export function MessageInput({ conversationId }: MessageInputProps) {
     const currentUser = store.currentUser;
     const tempId = `temp-${Date.now()}`;
 
-    // Optimistic: add temp message
     if (currentUser) {
       store.addMessage(conversationId, {
         id: tempId,
@@ -33,43 +39,54 @@ export function MessageInput({ conversationId }: MessageInputProps) {
         senderId: currentUser.id,
         sender: currentUser,
         text: trimmed,
-        replyToId: null,
-        replyTo: null,
+        replyToId: replyTo?.id || null,
+        replyTo: replyTo || null,
         editedAt: null,
         deletedAt: null,
         createdAt: new Date().toISOString(),
         status: "sent",
+        reactions: [],
       });
     }
 
     setText("");
+    onClearReply?.();
 
     try {
-      const res = await apiFetch(`/api/conversations/${conversationId}/messages`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: trimmed }),
-      });
+      const res = await apiFetch(
+        `/api/conversations/${conversationId}/messages`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            text: trimmed,
+            replyToId: replyTo?.id,
+          }),
+        }
+      );
 
       if (!res.ok) {
-        // Remove temp message on failure
-        const msgs = useChatStore.getState().messagesByConversation[conversationId] || [];
-        useChatStore.getState().setMessages(
-          conversationId,
-          msgs.filter((m) => m.id !== tempId)
-        );
+        const msgs =
+          useChatStore.getState().messagesByConversation[conversationId] || [];
+        useChatStore
+          .getState()
+          .setMessages(
+            conversationId,
+            msgs.filter((m) => m.id !== tempId)
+          );
         showToast("Failed to send message");
         return;
       }
 
       const data = await res.json();
-
-      // Replace temp message with real one (dedup)
-      const currentMsgs = useChatStore.getState().messagesByConversation[conversationId] || [];
-      useChatStore.getState().setMessages(
-        conversationId,
-        currentMsgs.map((m) => (m.id === tempId ? data.message : m))
-      );
+      const currentMsgs =
+        useChatStore.getState().messagesByConversation[conversationId] || [];
+      useChatStore
+        .getState()
+        .setMessages(
+          conversationId,
+          currentMsgs.map((m) => (m.id === tempId ? data.message : m))
+        );
     } catch {
       showToast("Network error — message not sent");
     } finally {
@@ -86,6 +103,26 @@ export function MessageInput({ conversationId }: MessageInputProps) {
 
   return (
     <div className="composer-wrap">
+      {replyTo && (
+        <div className="reply-preview">
+          <div>
+            <span className="rp-label">
+              replying to {replyTo.sender?.nickname || "..."}
+            </span>
+            <span className="rp-text">
+              {replyTo.text.slice(0, 60)}
+              {replyTo.text.length > 60 ? "…" : ""}
+            </span>
+          </div>
+          <button
+            className="icon-btn"
+            onClick={onClearReply}
+            style={{ width: 24, height: 24 }}
+          >
+            <Icons.X />
+          </button>
+        </div>
+      )}
       <div className="composer">
         <textarea
           value={text}

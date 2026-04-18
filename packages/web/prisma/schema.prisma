@@ -22,6 +22,7 @@ model User {
   messages       Message[]              @relation("SentMessages")
   readReceipts   MessageReadReceipt[]
   refreshTokens  RefreshToken[]
+  reactions      Reaction[]
 
   @@index([nickname])
   @@index([lastSeenAt])
@@ -92,10 +93,23 @@ model Message {
   createdAt      DateTime     @default(now())
 
   readReceipts MessageReadReceipt[]
+  reactions    Reaction[]
 
   @@index([conversationId, createdAt])
   @@index([senderId])
   @@index([replyToId])
+}
+
+model Reaction {
+  id        String @id @default(cuid())
+  messageId String
+  message   Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emoji     String
+
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
 }
 
 model MessageReadReceipt {

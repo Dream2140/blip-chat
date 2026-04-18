@@ -5,6 +5,19 @@ import { sendMessageSchema } from "@/lib/validators";
 import { publishMessageEvent } from "@/lib/redis";
 import { SocketEvents } from "@chat-app/shared";
 
+function groupReactions(
+  reactions: Array<{ emoji: string; userId: string }>,
+  currentUserId: string
+) {
+  const grouped: Record<string, { emoji: string; count: number; byMe: boolean }> = {};
+  for (const r of reactions) {
+    if (!grouped[r.emoji]) grouped[r.emoji] = { emoji: r.emoji, count: 0, byMe: false };
+    grouped[r.emoji].count++;
+    if (r.userId === currentUserId) grouped[r.emoji].byMe = true;
+  }
+  return Object.values(grouped);
+}
+
 const userSelect = {
   id: true,
   nickname: true,
@@ -46,6 +59,7 @@ export async function GET(
         replyTo: {
           include: { sender: { select: userSelect } },
         },
+        reactions: true,
       },
       orderBy: { createdAt: "desc" },
       take: limit + 1,
@@ -85,6 +99,7 @@ export async function GET(
         deletedAt: m.deletedAt?.toISOString() || null,
         createdAt: m.createdAt.toISOString(),
         status: "sent" as const,
+        reactions: groupReactions(m.reactions, auth.userId),
       }));
 
     const nextCursor = hasMore

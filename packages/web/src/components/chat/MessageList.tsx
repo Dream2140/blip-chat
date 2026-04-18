@@ -11,9 +11,10 @@ const EMPTY_MESSAGES: Message[] = [];
 interface MessageListProps {
   conversationId: string;
   messages: Message[];
+  onReply?: (message: Message) => void;
 }
 
-export function MessageList({ conversationId, messages }: MessageListProps) {
+export function MessageList({ conversationId, messages, onReply }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const currentUser = useChatStore((s) => s.currentUser);
@@ -161,6 +162,7 @@ export function MessageList({ conversationId, messages }: MessageListProps) {
                 isOwn={isMe}
                 showAvatar={showAvatar}
                 stackClass={stackClass}
+                onReply={onReply}
               />
             </div>
           );

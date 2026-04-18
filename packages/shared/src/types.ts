@@ -28,6 +28,12 @@ export interface ConversationParticipant {
   joinedAt: string;
 }
 
+export interface MessageReaction {
+  emoji: string;
+  count: number;
+  byMe: boolean;
+}
+
 export interface Message {
   id: string;
   conversationId: string;
@@ -40,6 +46,7 @@ export interface Message {
   deletedAt: string | null;
   createdAt: string;
   status: MessageStatus;
+  reactions?: MessageReaction[];
 }
 
 export type MessageStatus = "sent" | "delivered" | "read";

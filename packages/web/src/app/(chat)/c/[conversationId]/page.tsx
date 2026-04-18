@@ -9,8 +9,6 @@ import { MessageInput } from "@/components/chat/MessageInput";
 import { ConversationHeader } from "@/components/chat/ConversationHeader";
 import type { Message } from "@chat-app/shared";
 
-// CRITICAL: stable empty reference — `|| []` inside a Zustand selector
-// creates a new array each render, causing Object.is to fail → infinite re-render
 const EMPTY_MESSAGES: Message[] = [];
 
 export default function ConversationPage() {
@@ -18,6 +16,7 @@ export default function ConversationPage() {
   const conversationId = params.conversationId as string;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [replyTo, setReplyTo] = useState<Message | null>(null);
 
   const messages = useChatStore(
     (s) => s.messagesByConversation[conversationId] ?? EMPTY_MESSAGES
@@ -25,7 +24,7 @@ export default function ConversationPage() {
 
   const fetchMessages = useCallback(async () => {
     try {
-      const res = await fetch(
+      const res = await apiFetch(
         `/api/conversations/${conversationId}/messages?limit=50`
       );
       if (!res.ok) return;
@@ -40,6 +39,7 @@ export default function ConversationPage() {
     useChatStore.getState().setActiveConversationId(conversationId);
     setLoading(true);
     setError("");
+    setReplyTo(null);
 
     async function init() {
       try {
@@ -75,7 +75,6 @@ export default function ConversationPage() {
     };
   }, [conversationId, fetchMessages]);
 
-  // Poll for new messages every 3 seconds
   useEffect(() => {
     const interval = setInterval(fetchMessages, 3000);
     return () => clearInterval(interval);
@@ -103,8 +102,16 @@ export default function ConversationPage() {
   return (
     <>
       <ConversationHeader conversationId={conversationId} />
-      <MessageList conversationId={conversationId} messages={messages} />
-      <MessageInput conversationId={conversationId} />
+      <MessageList
+        conversationId={conversationId}
+        messages={messages}
+        onReply={setReplyTo}
+      />
+      <MessageInput
+        conversationId={conversationId}
+        replyTo={replyTo}
+        onClearReply={() => setReplyTo(null)}
+      />
     </>
   );
 }
