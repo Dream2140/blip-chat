@@ -88,11 +88,30 @@ export default function ChatLayout({
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fallback poll ONLY when WebSocket is disconnected
+  // Fallback poll ONLY when WebSocket is disconnected AND tab is visible
   useEffect(() => {
-    if (isConnected) return; // WebSocket handles real-time — no polling needed
-    const interval = setInterval(fetchConversations, 30000);
-    return () => clearInterval(interval);
+    if (isConnected) return;
+
+    let interval: ReturnType<typeof setInterval> | null = null;
+
+    function startPolling() {
+      if (interval) return;
+      interval = setInterval(fetchConversations, 30000);
+    }
+    function stopPolling() {
+      if (interval) { clearInterval(interval); interval = null; }
+    }
+    function onVisibility() {
+      document.hidden ? stopPolling() : startPolling();
+    }
+
+    if (!document.hidden) startPolling();
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      stopPolling();
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
   }, [isConnected, fetchConversations]);
 
   return (

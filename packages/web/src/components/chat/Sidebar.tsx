@@ -83,8 +83,11 @@ export function Sidebar() {
   }
 
   // Fetch all users when People tab is activated
+  // Fetch users only once (cache in state), not on every tab switch
+  const usersFetched = useRef(false);
   useEffect(() => {
-    if (tab !== "people") return;
+    if (tab !== "people" || usersFetched.current) return;
+    usersFetched.current = true;
     setLoadingUsers(true);
     apiFetch("/api/users/all")
       .then((res) => (res.ok ? res.json() : null))
