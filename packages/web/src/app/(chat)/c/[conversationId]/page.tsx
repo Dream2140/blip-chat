@@ -6,6 +6,11 @@ import { useChatStore } from "@/stores/chat-store";
 import { MessageList } from "@/components/chat/MessageList";
 import { MessageInput } from "@/components/chat/MessageInput";
 import { ConversationHeader } from "@/components/chat/ConversationHeader";
+import type { Message } from "@chat-app/shared";
+
+// CRITICAL: stable empty reference — `|| []` inside a Zustand selector
+// creates a new array each render, causing Object.is to fail → infinite re-render
+const EMPTY_MESSAGES: Message[] = [];
 
 export default function ConversationPage() {
   const params = useParams();
@@ -14,7 +19,7 @@ export default function ConversationPage() {
   const [error, setError] = useState("");
 
   const messages = useChatStore(
-    (s) => s.messagesByConversation[conversationId] || []
+    (s) => s.messagesByConversation[conversationId] ?? EMPTY_MESSAGES
   );
 
   const fetchMessages = useCallback(async () => {
@@ -30,7 +35,6 @@ export default function ConversationPage() {
     } catch {}
   }, [conversationId]);
 
-  // Initial load
   useEffect(() => {
     useChatStore.getState().setActiveConversationId(conversationId);
     setLoading(true);
@@ -38,7 +42,6 @@ export default function ConversationPage() {
 
     async function init() {
       try {
-        // Ensure conversation is in store
         const hasConvo = useChatStore
           .getState()
           .conversations.some((c) => c.id === conversationId);
@@ -79,14 +82,7 @@ export default function ConversationPage() {
 
   if (error) {
     return (
-      <div
-        style={{
-          flex: 1,
-          display: "grid",
-          placeItems: "center",
-          color: "var(--ink-3)",
-        }}
-      >
+      <div style={{ flex: 1, display: "grid", placeItems: "center", color: "var(--ink-3)" }}>
         <div style={{ textAlign: "center" }}>
           <div style={{ fontSize: 36, marginBottom: 12 }}>😕</div>
           <div style={{ fontWeight: 600, color: "var(--ink)" }}>{error}</div>
@@ -97,15 +93,7 @@ export default function ConversationPage() {
 
   if (loading) {
     return (
-      <div
-        style={{
-          flex: 1,
-          display: "grid",
-          placeItems: "center",
-          color: "var(--ink-3)",
-          fontSize: 13,
-        }}
-      >
+      <div style={{ flex: 1, display: "grid", placeItems: "center", color: "var(--ink-3)", fontSize: 13 }}>
         loading…
       </div>
     );
