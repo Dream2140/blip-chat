@@ -27,7 +27,7 @@ export function ConversationItem({ conversation }: ConversationItemProps) {
       : otherParticipant?.user.nickname || "Unknown";
 
   const isOnline = otherParticipant
-    ? onlineUserIds.has(otherParticipant.userId)
+    ? !!onlineUserIds[otherParticipant.userId]
     : false;
 
   const isTyping = typingUsers.length > 0;

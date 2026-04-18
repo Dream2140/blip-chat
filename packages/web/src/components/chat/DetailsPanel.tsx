@@ -25,7 +25,7 @@ export function DetailsPanel() {
       : otherParticipant?.user.nickname || "Unknown";
 
   const isOnline = otherParticipant
-    ? onlineUserIds.has(otherParticipant.userId)
+    ? !!onlineUserIds[otherParticipant.userId]
     : false;
 
   return (
@@ -70,7 +70,7 @@ export function DetailsPanel() {
                 <UserAvatar
                   name={p.user.nickname}
                   size="sm"
-                  isOnline={onlineUserIds.has(p.userId)}
+                  isOnline={!!onlineUserIds[p.userId]}
                 />
                 <span style={{ fontWeight: 600 }}>{p.user.nickname}</span>
                 {p.role === "ADMIN" && (

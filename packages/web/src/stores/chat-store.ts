@@ -1,18 +1,12 @@
 "use client";
 
 import { create } from "zustand";
-import type {
-  User,
-  Conversation,
-  Message,
-} from "@chat-app/shared";
+import type { User, Conversation, Message } from "@chat-app/shared";
 
 interface ChatStore {
-  // Auth
   currentUser: User | null;
   setCurrentUser: (user: User | null) => void;
 
-  // Conversations
   conversations: Conversation[];
   activeConversationId: string | null;
   setConversations: (conversations: Conversation[]) => void;
@@ -20,31 +14,27 @@ interface ChatStore {
   updateConversation: (id: string, update: Partial<Conversation>) => void;
   addConversation: (conversation: Conversation) => void;
 
-  // Messages (keyed by conversationId)
   messagesByConversation: Record<string, Message[]>;
   setMessages: (conversationId: string, messages: Message[]) => void;
   addMessage: (conversationId: string, message: Message) => void;
   updateMessage: (conversationId: string, messageId: string, update: Partial<Message>) => void;
   removeMessage: (conversationId: string, messageId: string) => void;
-  prependMessages: (conversationId: string, messages: Message[]) => void;
 
-  // Presence
-  onlineUserIds: Set<string>;
+  // Use Record instead of Set — Sets cause re-render loops in React 19 + Zustand v5
+  onlineUserIds: Record<string, boolean>;
   setUserOnline: (userId: string) => void;
   setUserOffline: (userId: string) => void;
+  isUserOnline: (userId: string) => boolean;
 
-  // Typing
   typingUsers: Record<string, string[]>;
   setUserTyping: (conversationId: string, userId: string) => void;
   clearUserTyping: (conversationId: string, userId: string) => void;
 }
 
-export const useChatStore = create<ChatStore>((set) => ({
-  // Auth
+export const useChatStore = create<ChatStore>((set, get) => ({
   currentUser: null,
   setCurrentUser: (user) => set({ currentUser: user }),
 
-  // Conversations
   conversations: [],
   activeConversationId: null,
   setConversations: (conversations) => set({ conversations }),
@@ -56,11 +46,11 @@ export const useChatStore = create<ChatStore>((set) => ({
       ),
     })),
   addConversation: (conversation) =>
-    set((state) => ({
-      conversations: [conversation, ...state.conversations],
-    })),
+    set((state) => {
+      if (state.conversations.find((c) => c.id === conversation.id)) return state;
+      return { conversations: [conversation, ...state.conversations] };
+    }),
 
-  // Messages
   messagesByConversation: {},
   setMessages: (conversationId, messages) =>
     set((state) => ({
@@ -101,33 +91,22 @@ export const useChatStore = create<ChatStore>((set) => ({
         ),
       },
     })),
-  prependMessages: (conversationId, messages) =>
-    set((state) => ({
-      messagesByConversation: {
-        ...state.messagesByConversation,
-        [conversationId]: [
-          ...messages,
-          ...(state.messagesByConversation[conversationId] || []),
-        ],
-      },
-    })),
 
-  // Presence
-  onlineUserIds: new Set(),
+  onlineUserIds: {},
   setUserOnline: (userId) =>
     set((state) => {
-      const next = new Set(state.onlineUserIds);
-      next.add(userId);
-      return { onlineUserIds: next };
+      if (state.onlineUserIds[userId]) return state; // no change
+      return { onlineUserIds: { ...state.onlineUserIds, [userId]: true } };
     }),
   setUserOffline: (userId) =>
     set((state) => {
-      const next = new Set(state.onlineUserIds);
-      next.delete(userId);
+      if (!state.onlineUserIds[userId]) return state; // no change
+      const next = { ...state.onlineUserIds };
+      delete next[userId];
       return { onlineUserIds: next };
     }),
+  isUserOnline: (userId) => !!get().onlineUserIds[userId],
 
-  // Typing
   typingUsers: {},
   setUserTyping: (conversationId, userId) =>
     set((state) => {
@@ -141,12 +120,14 @@ export const useChatStore = create<ChatStore>((set) => ({
       };
     }),
   clearUserTyping: (conversationId, userId) =>
-    set((state) => ({
-      typingUsers: {
-        ...state.typingUsers,
-        [conversationId]: (state.typingUsers[conversationId] || []).filter(
-          (id) => id !== userId
-        ),
-      },
-    })),
+    set((state) => {
+      const current = state.typingUsers[conversationId] || [];
+      if (!current.includes(userId)) return state;
+      return {
+        typingUsers: {
+          ...state.typingUsers,
+          [conversationId]: current.filter((id) => id !== userId),
+        },
+      };
+    }),
 }));
