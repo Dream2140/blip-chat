@@ -17,6 +17,15 @@ export const SocketEvents = {
   TYPING_STOP: "typing:stop",
   MESSAGES_READ: "messages:read",
   JOIN_CONVERSATIONS: "join:conversations",
+
+  // Call signaling
+  CALL_INITIATE: "call:initiate",
+  CALL_ACCEPT: "call:accept",
+  CALL_REJECT: "call:reject",
+  CALL_END: "call:end",
+  CALL_OFFER: "call:offer",
+  CALL_ANSWER: "call:answer",
+  CALL_ICE_CANDIDATE: "call:ice_candidate",
 } as const;
 
 // Redis pub/sub channels
@@ -70,6 +79,16 @@ export interface ServerToClientEvents {
     name: string | null;
     participants: Array<{ userId: string; role: "ADMIN" | "MEMBER" }>;
   }) => void;
+  [SocketEvents.CALL_INITIATE]: (data: {
+    callerId: string;
+    callerNickname: string;
+  }) => void;
+  [SocketEvents.CALL_ACCEPT]: (data: { userId: string }) => void;
+  [SocketEvents.CALL_REJECT]: (data: { userId: string }) => void;
+  [SocketEvents.CALL_END]: (data: { userId: string }) => void;
+  [SocketEvents.CALL_OFFER]: (data: { sdp: string }) => void;
+  [SocketEvents.CALL_ANSWER]: (data: { sdp: string }) => void;
+  [SocketEvents.CALL_ICE_CANDIDATE]: (data: { candidate: string }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -81,5 +100,21 @@ export interface ClientToServerEvents {
   }) => void;
   [SocketEvents.JOIN_CONVERSATIONS]: (data: {
     conversationIds: string[];
+  }) => void;
+  [SocketEvents.CALL_INITIATE]: (data: { targetUserId: string }) => void;
+  [SocketEvents.CALL_ACCEPT]: (data: { targetUserId: string }) => void;
+  [SocketEvents.CALL_REJECT]: (data: { targetUserId: string }) => void;
+  [SocketEvents.CALL_END]: (data: { targetUserId: string }) => void;
+  [SocketEvents.CALL_OFFER]: (data: {
+    targetUserId: string;
+    sdp: string;
+  }) => void;
+  [SocketEvents.CALL_ANSWER]: (data: {
+    targetUserId: string;
+    sdp: string;
+  }) => void;
+  [SocketEvents.CALL_ICE_CANDIDATE]: (data: {
+    targetUserId: string;
+    candidate: string;
   }) => void;
 }

@@ -125,6 +125,50 @@ export function useSocket() {
         });
       });
 
+      // ── Call signaling events ──
+      socket.on("call:initiate" as never, ((data: { callerId: string; callerNickname: string }) => {
+        useChatStore.getState().receiveCall(data.callerId, data.callerNickname);
+      }) as never);
+
+      socket.on("call:accept" as never, ((data: { callerId: string }) => {
+        useChatStore.getState().acceptCall();
+        // Notify CallOverlay to start WebRTC offer
+        const handler = (window as unknown as Record<string, unknown>).__blipCallAcceptHandler as
+          | ((data: { callerId: string }) => void)
+          | undefined;
+        if (handler) handler(data);
+      }) as never);
+
+      socket.on("call:reject" as never, (() => {
+        useChatStore.getState().endCall();
+      }) as never);
+
+      socket.on("call:end" as never, (() => {
+        useChatStore.getState().endCall();
+      }) as never);
+
+      socket.on("call:offer" as never, ((data: { sdp: string; callerId: string }) => {
+        // Handled by CallOverlay via onCallOffer
+        const handler = (window as unknown as Record<string, unknown>).__blipCallOfferHandler as
+          | ((data: { sdp: string; callerId: string }) => void)
+          | undefined;
+        if (handler) handler(data);
+      }) as never);
+
+      socket.on("call:answer" as never, ((data: { sdp: string }) => {
+        const handler = (window as unknown as Record<string, unknown>).__blipCallAnswerHandler as
+          | ((data: { sdp: string }) => void)
+          | undefined;
+        if (handler) handler(data);
+      }) as never);
+
+      socket.on("call:ice_candidate" as never, ((data: { candidate: string }) => {
+        const handler = (window as unknown as Record<string, unknown>).__blipCallIceCandidateHandler as
+          | ((data: { candidate: string }) => void)
+          | undefined;
+        if (handler) handler(data);
+      }) as never);
+
       socketRef.current = socket;
     } catch (err) {
       console.error("[Socket] connection failed:", err);
@@ -162,6 +206,8 @@ export function useSocket() {
     []
   );
 
+  const getSocket = useCallback(() => socketRef.current, []);
+
   return {
     connect,
     disconnect,
@@ -169,5 +215,6 @@ export function useSocket() {
     emitTypingStart,
     emitTypingStop,
     emitMessagesRead,
+    getSocket,
   };
 }

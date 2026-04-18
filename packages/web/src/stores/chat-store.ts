@@ -32,6 +32,17 @@ interface ChatStore {
 
   socketConnected: boolean;
   setSocketConnected: (v: boolean) => void;
+
+  // Call state
+  callState: "idle" | "calling" | "incoming" | "active";
+  callRemoteUserId: string | null;
+  callRemoteNickname: string | null;
+  callIsMuted: boolean;
+  startCall: (userId: string, nickname: string) => void;
+  receiveCall: (callerId: string, callerNickname: string) => void;
+  acceptCall: () => void;
+  endCall: () => void;
+  toggleMute: () => void;
 }
 
 export const useChatStore = create<ChatStore>((set, get) => ({
@@ -136,4 +147,18 @@ export const useChatStore = create<ChatStore>((set, get) => ({
 
   socketConnected: false,
   setSocketConnected: (v) => set({ socketConnected: v }),
+
+  // Call state
+  callState: "idle",
+  callRemoteUserId: null,
+  callRemoteNickname: null,
+  callIsMuted: false,
+  startCall: (userId, nickname) =>
+    set({ callState: "calling", callRemoteUserId: userId, callRemoteNickname: nickname }),
+  receiveCall: (callerId, callerNickname) =>
+    set({ callState: "incoming", callRemoteUserId: callerId, callRemoteNickname: callerNickname }),
+  acceptCall: () => set({ callState: "active" }),
+  endCall: () =>
+    set({ callState: "idle", callRemoteUserId: null, callRemoteNickname: null, callIsMuted: false }),
+  toggleMute: () => set((state) => ({ callIsMuted: !state.callIsMuted })),
 }));

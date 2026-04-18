@@ -2,12 +2,22 @@ import type { Server, Socket } from "socket.io";
 import type { Redis } from "ioredis";
 import { SocketEvents, RedisChannels } from "@chat-app/shared";
 
+function findSocketByUserId(io: Server, userId: string): Socket | undefined {
+  for (const [, s] of io.sockets.sockets) {
+    if (s.data.userId === userId) return s;
+  }
+  return undefined;
+}
+
 export function registerSocketHandlers(
   io: Server,
   socket: Socket,
   redis: Redis
 ): void {
   const userId = socket.data.userId as string;
+
+  // Join user-specific room for targeted messaging
+  socket.join(`user:${userId}`);
 
   // Publish online status
   redis.publish(
@@ -59,6 +69,59 @@ export function registerSocketHandlers(
         userId,
         lastReadMessageId: lastMessageId,
       });
+  });
+
+  // Call signaling
+  socket.on(SocketEvents.CALL_INITIATE, ({ targetUserId }) => {
+    const target = findSocketByUserId(io, targetUserId);
+    if (target) {
+      target.emit(SocketEvents.CALL_INITIATE, {
+        callerId: userId,
+        callerNickname: socket.data.nickname,
+      });
+    }
+  });
+
+  socket.on(SocketEvents.CALL_ACCEPT, ({ targetUserId }) => {
+    const target = findSocketByUserId(io, targetUserId);
+    if (target) {
+      target.emit(SocketEvents.CALL_ACCEPT, { userId });
+    }
+  });
+
+  socket.on(SocketEvents.CALL_REJECT, ({ targetUserId }) => {
+    const target = findSocketByUserId(io, targetUserId);
+    if (target) {
+      target.emit(SocketEvents.CALL_REJECT, { userId });
+    }
+  });
+
+  socket.on(SocketEvents.CALL_END, ({ targetUserId }) => {
+    const target = findSocketByUserId(io, targetUserId);
+    if (target) {
+      target.emit(SocketEvents.CALL_END, { userId });
+    }
+  });
+
+  socket.on(SocketEvents.CALL_OFFER, ({ targetUserId, sdp }) => {
+    const target = findSocketByUserId(io, targetUserId);
+    if (target) {
+      target.emit(SocketEvents.CALL_OFFER, { sdp });
+    }
+  });
+
+  socket.on(SocketEvents.CALL_ANSWER, ({ targetUserId, sdp }) => {
+    const target = findSocketByUserId(io, targetUserId);
+    if (target) {
+      target.emit(SocketEvents.CALL_ANSWER, { sdp });
+    }
+  });
+
+  socket.on(SocketEvents.CALL_ICE_CANDIDATE, ({ targetUserId, candidate }) => {
+    const target = findSocketByUserId(io, targetUserId);
+    if (target) {
+      target.emit(SocketEvents.CALL_ICE_CANDIDATE, { candidate });
+    }
   });
 
   // Disconnect

@@ -7,6 +7,7 @@ import { apiFetch } from "@/lib/api-client";
 import { useSocket } from "@/hooks/useSocket";
 import { Sidebar } from "@/components/chat/Sidebar";
 import { ToastContainer } from "@/components/chat/Toast";
+import { CallOverlay } from "@/components/chat/CallOverlay";
 import "@/app/chat.css";
 
 export default function ChatLayout({
@@ -119,6 +120,7 @@ export default function ChatLayout({
       <Sidebar />
       <main className="chat-panel">{children}</main>
       <ToastContainer />
+      <CallOverlay />
     </div>
   );
 }

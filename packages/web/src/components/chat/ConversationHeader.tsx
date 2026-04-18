@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useChatStore } from "@/stores/chat-store";
 import { apiFetch } from "@/lib/api-client";
+import { useSocket } from "@/hooks/useSocket";
 import { UserAvatar } from "./UserAvatar";
 import { Icons } from "./Icons";
 import type { Message } from "@chat-app/shared";
@@ -67,6 +68,27 @@ export function ConversationHeader({ conversationId }: ConversationHeaderProps) 
     setShowPinned(true);
   }, [conversationId, showPinned]);
 
+  const { getSocket } = useSocket();
+
+  const handleStartCall = useCallback(() => {
+    if (!conversation || conversation.type !== "DIRECT") return;
+    const other = conversation.participants.find((p) => p.userId !== currentUser?.id);
+    if (!other) return;
+    const targetUserId = other.userId;
+    const targetNickname = other.user.nickname || "Unknown";
+
+    useChatStore.getState().startCall(targetUserId, targetNickname);
+
+    const socket = getSocket();
+    if (socket) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (socket as any).emit("call:initiate", {
+        targetUserId,
+        callerNickname: currentUser?.nickname || "Unknown",
+      });
+    }
+  }, [conversation, currentUser, getSocket]);
+
   if (!conversation) return null;
 
   const otherParticipant =
@@ -95,7 +117,7 @@ export function ConversationHeader({ conversationId }: ConversationHeaderProps) 
           </div>
         </div>
         <div className="header-spacer" />
-        <button className="icon-btn"><Icons.Phone /></button>
+        <button className="icon-btn" onClick={handleStartCall}><Icons.Phone /></button>
         <button className="icon-btn"><Icons.Video /></button>
         <button className="icon-btn"><Icons.More /></button>
       </header>
