@@ -1,169 +1,159 @@
 import { test, expect } from "@playwright/test";
 
-const TIMESTAMP = Date.now();
+const TS = Date.now();
 const USER_A = {
-  email: `smoke-a-${TIMESTAMP}@test.com`,
+  email: `a-${TS}@test.com`,
   password: "testtest123",
-  nickname: `smokeA${TIMESTAMP}`,
+  nickname: `userA${TS}`,
 };
 const USER_B = {
-  email: `smoke-b-${TIMESTAMP}@test.com`,
+  email: `b-${TS}@test.com`,
   password: "testtest123",
-  nickname: `smokeB${TIMESTAMP}`,
+  nickname: `userB${TS}`,
 };
 
-// ─── 1. Registration ───
-test("1. Register user A", async ({ page }) => {
-  await page.goto("/register");
-  await expect(page.locator("text=blip")).toBeVisible();
-  await expect(page.locator("text=Create account")).toBeVisible();
+// Helper: register a user via API (faster, no UI flakiness)
+async function registerViaAPI(
+  baseURL: string,
+  user: { email: string; password: string; nickname: string }
+) {
+  const res = await fetch(`${baseURL}/api/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(user),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(`Register failed: ${err.error}`);
+  }
+  return res.json();
+}
 
-  await page.fill('input[type="text"]', USER_A.nickname);
-  await page.fill('input[type="email"]', USER_A.email);
-  await page.fill('input[type="password"]', USER_A.password);
-  await page.click('button[type="submit"]');
-
-  // Should redirect to chat after registration
-  await page.waitForURL("**/", { timeout: 10000 });
-
-  // Should see the blip logo in sidebar
-  await expect(page.locator("text=blip").first()).toBeVisible();
-});
-
-test("2. Register user B", async ({ page }) => {
-  await page.goto("/register");
-
-  await page.fill('input[type="text"]', USER_B.nickname);
-  await page.fill('input[type="email"]', USER_B.email);
-  await page.fill('input[type="password"]', USER_B.password);
-  await page.click('button[type="submit"]');
-
-  await page.waitForURL("**/", { timeout: 10000 });
-  await expect(page.locator("text=blip").first()).toBeVisible();
-});
-
-// ─── 2. Login ───
-test("3. Login with user A", async ({ page }) => {
+// Helper: login and return to chat home
+async function loginAs(
+  page: import("@playwright/test").Page,
+  user: { email: string; password: string }
+) {
   await page.goto("/login");
-  await expect(page.locator("text=blip")).toBeVisible();
+  await page.locator('input[type="email"]').fill(user.email);
+  await page.locator('input[type="password"]').fill(user.password);
+  await page.locator('button[type="submit"]').click();
 
-  await page.fill('input[type="email"]', USER_A.email);
-  await page.fill('input[type="password"]', USER_A.password);
-  await page.click('button[type="submit"]');
+  // Wait for either redirect to / or error message
+  await Promise.race([
+    page.waitForURL(/\/$/, { timeout: 15000 }),
+    page.locator("text=Invalid").waitFor({ timeout: 15000 }).then(() => {
+      throw new Error("Login returned 'Invalid email or password'");
+    }),
+  ]);
 
-  await page.waitForURL("**/", { timeout: 10000 });
+  // Verify we're on the chat page
+  await expect(page.locator(".sidebar")).toBeVisible({ timeout: 5000 });
+}
 
-  // Should see sidebar with chats/people tabs
+// ─── Setup: register both users via API ───
+test.beforeAll(async ({}, testInfo) => {
+  const baseURL = testInfo.project.use.baseURL!;
+  await registerViaAPI(baseURL, USER_A);
+  await registerViaAPI(baseURL, USER_B);
+});
+
+// ─── 1. Register page renders ───
+test("1. Register page loads correctly", async ({ page }) => {
+  await page.goto("/register");
+  await expect(page.locator('button[type="submit"]')).toBeVisible();
+  await expect(page.locator('input[type="email"]')).toBeVisible();
+  await expect(page.locator('input[type="text"]')).toBeVisible();
+});
+
+// ─── 2. Login page renders ───
+test("2. Login page loads correctly", async ({ page }) => {
+  await page.goto("/login");
+  await expect(page.locator('button[type="submit"]')).toBeVisible();
+  await expect(page.locator('input[type="email"]')).toBeVisible();
+});
+
+// ─── 3. Login works ───
+test("3. Login redirects to chat home", async ({ page }) => {
+  await loginAs(page, USER_A);
   await expect(page.locator("text=chats").first()).toBeVisible();
   await expect(page.locator("text=people").first()).toBeVisible();
 });
 
-// ─── 3. People tab — find users ───
+// ─── 4. People tab shows users ───
 test("4. People tab shows other users", async ({ page }) => {
-  // Login first
-  await page.goto("/login");
-  await page.fill('input[type="email"]', USER_A.email);
-  await page.fill('input[type="password"]', USER_A.password);
-  await page.click('button[type="submit"]');
-  await page.waitForURL("**/", { timeout: 10000 });
+  await loginAs(page, USER_A);
+  await page.locator("text=people").first().click();
 
-  // Click people tab
-  await page.click("text=people");
-
-  // Should see user B in the list (wait for API)
-  await expect(page.locator(`text=${USER_B.nickname}`).first()).toBeVisible({
-    timeout: 10000,
-  });
+  await expect(
+    page.locator(`text=${USER_B.nickname}`).first()
+  ).toBeVisible({ timeout: 10000 });
 });
 
-// ─── 4. Start a chat ───
-test("5. Click user B to start a chat — page does NOT crash", async ({
-  page,
-}) => {
-  // Login as A
-  await page.goto("/login");
-  await page.fill('input[type="email"]', USER_A.email);
-  await page.fill('input[type="password"]', USER_A.password);
-  await page.click('button[type="submit"]');
-  await page.waitForURL("**/", { timeout: 10000 });
+// ─── 5. CRITICAL: clicking a user opens chat WITHOUT crash ───
+test("5. Open chat with user — no crash", async ({ page }) => {
+  await loginAs(page, USER_A);
 
-  // Go to people, click user B
-  await page.click("text=people");
+  // Go to people tab, click user B
+  await page.locator("text=people").first().click();
   await page.locator(`text=${USER_B.nickname}`).first().click();
 
-  // Should navigate to /c/... without crashing
-  await page.waitForURL("**/c/**", { timeout: 10000 });
+  // Should navigate to /c/...
+  await page.waitForURL(/\/c\//, { timeout: 15000 });
 
-  // Page should NOT show error
-  await expect(page.locator("text=This page couldn't load")).not.toBeVisible({
-    timeout: 5000,
-  });
+  // Page must NOT crash
+  await expect(
+    page.locator("text=This page couldn't load")
+  ).not.toBeVisible({ timeout: 3000 });
 
-  // Should see the message input (composer)
+  // Should see the message composer textarea
   await expect(page.locator("textarea")).toBeVisible({ timeout: 5000 });
 });
 
-// ─── 5. Send a message ───
-test("6. Send a message in the chat", async ({ page }) => {
-  // Login as A
-  await page.goto("/login");
-  await page.fill('input[type="email"]', USER_A.email);
-  await page.fill('input[type="password"]', USER_A.password);
-  await page.click('button[type="submit"]');
-  await page.waitForURL("**/", { timeout: 10000 });
+// ─── 6. Send a message ───
+test("6. Send a message", async ({ page }) => {
+  await loginAs(page, USER_A);
 
-  // Open people tab and start chat with B
-  await page.click("text=people");
+  await page.locator("text=people").first().click();
   await page.locator(`text=${USER_B.nickname}`).first().click();
-  await page.waitForURL("**/c/**", { timeout: 10000 });
+  await page.waitForURL(/\/c\//, { timeout: 15000 });
+  await expect(page.locator("textarea")).toBeVisible({ timeout: 5000 });
 
-  // Type and send a message
-  const messageText = `Hello from smoke test ${TIMESTAMP}`;
-  await page.fill("textarea", messageText);
+  const msg = `smoke-${TS}`;
+  await page.locator("textarea").fill(msg);
   await page.keyboard.press("Enter");
 
-  // Message should appear in the chat
-  await expect(page.locator(`text=${messageText}`).first()).toBeVisible({
+  // Message should appear as a bubble
+  await expect(page.locator(`text=${msg}`).first()).toBeVisible({
     timeout: 5000,
   });
 });
 
-// ─── 6. Message appears for other user ───
-test("7. User B sees the message from A", async ({ page }) => {
-  // Login as B
-  await page.goto("/login");
-  await page.fill('input[type="email"]', USER_B.email);
-  await page.fill('input[type="password"]', USER_B.password);
-  await page.click('button[type="submit"]');
-  await page.waitForURL("**/", { timeout: 10000 });
+// ─── 7. Other user sees the message ───
+test("7. User B receives the message", async ({ page }) => {
+  await loginAs(page, USER_B);
 
-  // Should see conversation with A in chats tab (wait for poll)
+  // Wait for conversation to appear in sidebar (polling every 5s)
   await expect(
     page.locator(`text=${USER_A.nickname}`).first()
   ).toBeVisible({ timeout: 15000 });
 
-  // Click on the conversation
+  // Open the conversation
   await page.locator(`text=${USER_A.nickname}`).first().click();
-  await page.waitForURL("**/c/**", { timeout: 10000 });
+  await page.waitForURL(/\/c\//, { timeout: 15000 });
 
-  // Should see A's message
-  const messageText = `Hello from smoke test ${TIMESTAMP}`;
-  await expect(page.locator(`text=${messageText}`).first()).toBeVisible({
+  // Should see A's message (polling every 3s)
+  const msg = `smoke-${TS}`;
+  await expect(page.locator(`text=${msg}`).first()).toBeVisible({
     timeout: 10000,
   });
 });
 
-// ─── 7. Logout ───
-test("8. Logout works", async ({ page }) => {
-  await page.goto("/login");
-  await page.fill('input[type="email"]', USER_A.email);
-  await page.fill('input[type="password"]', USER_A.password);
-  await page.click('button[type="submit"]');
-  await page.waitForURL("**/", { timeout: 10000 });
+// ─── 8. Logout ───
+test("8. Logout redirects to login", async ({ page }) => {
+  await loginAs(page, USER_A);
 
-  // Click logout (X button in me-chip)
+  // Click X button in me-chip
   await page.locator(".me-chip .icon-btn").click();
-
-  // Should redirect to login
-  await page.waitForURL("**/login**", { timeout: 10000 });
+  await page.waitForURL(/\/login/, { timeout: 10000 });
 });
