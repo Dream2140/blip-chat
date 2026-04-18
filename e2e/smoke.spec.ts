@@ -498,3 +498,49 @@ test.describe("API Validation", () => {
     expect(msgRes.status).toBe(400);
   });
 });
+
+// ═══════════════════════════════════════════
+// BUG FIXES — regression tests
+// ═══════════════════════════════════════════
+
+test.describe("Bug Fixes", () => {
+  test("reply-to message shows quote in chat", async ({ page }) => {
+    await openChatAtoB(page);
+
+    // Send a message to reply to
+    const original = `original-${TS}`;
+    await page.locator("textarea").fill(original);
+    await page.keyboard.press("Enter");
+    await expect(page.locator(`text=${original}`).first()).toBeVisible({
+      timeout: 5000,
+    });
+
+    // Hover over the message and click reply
+    const bubble = page.locator(`text=${original}`).first();
+    await bubble.hover();
+    await page.locator('[title="reply"]').first().click();
+
+    // Should see reply preview in composer
+    await expect(page.locator(".reply-preview")).toBeVisible({ timeout: 3000 });
+
+    // Send reply
+    const reply = `reply-${TS}`;
+    await page.locator("textarea").fill(reply);
+    await page.keyboard.press("Enter");
+
+    // Reply should appear with quote (↪ prefix in reply-quote)
+    await expect(page.locator(`text=${reply}`).first()).toBeVisible({
+      timeout: 5000,
+    });
+    // The reply quote should contain original text
+    await expect(page.locator(".reply-quote").first()).toBeVisible({
+      timeout: 5000,
+    });
+  });
+
+  test("mobile viewport meta tag present", async ({ page }) => {
+    await page.goto("/login");
+    const viewport = await page.locator('meta[name="viewport"]').getAttribute("content");
+    expect(viewport).toContain("width=device-width");
+  });
+});

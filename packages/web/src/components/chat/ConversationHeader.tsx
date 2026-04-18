@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useChatStore } from "@/stores/chat-store";
 import { apiFetch } from "@/lib/api-client";
 import { UserAvatar } from "./UserAvatar";
 import { Icons } from "./Icons";
+import type { Message } from "@chat-app/shared";
 
-// Cache pinned counts per conversation to avoid re-fetching
 const pinnedCache = new Map<string, { count: number; ts: number }>();
-const CACHE_TTL = 60000; // 1 minute
+const CACHE_TTL = 60000;
 
 interface ConversationHeaderProps {
   conversationId: string;
@@ -21,17 +21,19 @@ export function ConversationHeader({ conversationId }: ConversationHeaderProps) 
   );
   const currentUser = useChatStore((s) => s.currentUser);
   const [pinnedCount, setPinnedCount] = useState(0);
+  const [pinnedMessages, setPinnedMessages] = useState<Message[]>([]);
+  const [showPinned, setShowPinned] = useState(false);
   const fetched = useRef(false);
 
   useEffect(() => {
     fetched.current = false;
+    setShowPinned(false);
   }, [conversationId]);
 
   useEffect(() => {
     if (fetched.current) return;
     fetched.current = true;
 
-    // Check cache first
     const cached = pinnedCache.get(conversationId);
     if (cached && Date.now() - cached.ts < CACHE_TTL) {
       setPinnedCount(cached.count);
@@ -41,12 +43,29 @@ export function ConversationHeader({ conversationId }: ConversationHeaderProps) 
     apiFetch(`/api/conversations/${conversationId}/pinned`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        const count = data?.items?.length || 0;
-        setPinnedCount(count);
-        pinnedCache.set(conversationId, { count, ts: Date.now() });
+        const items = data?.items || [];
+        setPinnedCount(items.length);
+        setPinnedMessages(items);
+        pinnedCache.set(conversationId, { count: items.length, ts: Date.now() });
       })
       .catch(() => {});
   }, [conversationId]);
+
+  const handlePinnedClick = useCallback(async () => {
+    if (showPinned) {
+      setShowPinned(false);
+      return;
+    }
+    // Fetch fresh pinned messages
+    try {
+      const res = await apiFetch(`/api/conversations/${conversationId}/pinned`);
+      if (res.ok) {
+        const data = await res.json();
+        setPinnedMessages(data.items || []);
+      }
+    } catch {}
+    setShowPinned(true);
+  }, [conversationId, showPinned]);
 
   if (!conversation) return null;
 
@@ -81,8 +100,49 @@ export function ConversationHeader({ conversationId }: ConversationHeaderProps) 
         <button className="icon-btn"><Icons.More /></button>
       </header>
       {pinnedCount > 0 && (
-        <div className="pinned-banner" style={{ cursor: "pointer" }}>
+        <div
+          className="pinned-banner"
+          onClick={handlePinnedClick}
+          style={{ cursor: "pointer" }}
+        >
           <span>📌 {pinnedCount} pinned message{pinnedCount !== 1 ? "s" : ""}</span>
+          <span style={{ marginLeft: "auto", fontSize: 11, opacity: 0.7 }}>
+            {showPinned ? "▲ hide" : "▼ show"}
+          </span>
+        </div>
+      )}
+      {showPinned && pinnedMessages.length > 0 && (
+        <div
+          style={{
+            maxHeight: 200,
+            overflowY: "auto",
+            margin: "0 24px 8px",
+            background: "var(--bg-elev)",
+            borderRadius: 14,
+            boxShadow: "var(--shadow-card)",
+            padding: 8,
+          }}
+        >
+          {pinnedMessages.map((msg) => (
+            <div
+              key={msg.id}
+              style={{
+                padding: "8px 12px",
+                borderRadius: 10,
+                fontSize: 13,
+                lineHeight: 1.5,
+                borderBottom: "1px solid var(--line)",
+              }}
+            >
+              <div style={{ fontWeight: 600, fontSize: 11, color: "var(--primary)", marginBottom: 2 }}>
+                {msg.sender?.nickname || "Unknown"}
+              </div>
+              <div>{msg.text}</div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--ink-3)", marginTop: 4 }}>
+                pinned {msg.pinnedAt ? new Date(msg.pinnedAt).toLocaleDateString() : ""}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </>

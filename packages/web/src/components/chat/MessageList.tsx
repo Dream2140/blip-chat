@@ -192,8 +192,7 @@ export function MessageList({ conversationId, messages, onReply }: MessageListPr
           style={{
             position: "sticky",
             bottom: 8,
-            left: "50%",
-            transform: "translateX(-50%)",
+            alignSelf: "center",
             background: "var(--bg-elev)",
             border: "1px solid var(--line)",
             borderRadius: 999,

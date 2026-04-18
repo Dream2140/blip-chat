@@ -150,6 +150,9 @@ export async function POST(
       },
       include: {
         sender: { select: userSelect },
+        replyTo: {
+          include: { sender: { select: userSelect } },
+        },
       },
     });
 
@@ -181,7 +184,25 @@ export async function POST(
         },
         text: message.text,
         replyToId: message.replyToId,
-        replyTo: null,
+        replyTo: message.replyTo
+          ? {
+              id: message.replyTo.id,
+              conversationId: message.replyTo.conversationId,
+              senderId: message.replyTo.senderId,
+              sender: {
+                ...message.replyTo.sender,
+                lastSeenAt: message.replyTo.sender.lastSeenAt.toISOString(),
+                createdAt: message.replyTo.sender.createdAt.toISOString(),
+              },
+              text: message.replyTo.text,
+              replyToId: message.replyTo.replyToId,
+              replyTo: null,
+              editedAt: message.replyTo.editedAt?.toISOString() || null,
+              deletedAt: message.replyTo.deletedAt?.toISOString() || null,
+              createdAt: message.replyTo.createdAt.toISOString(),
+              status: "sent" as const,
+            }
+          : null,
         editedAt: null,
         deletedAt: null,
         createdAt: message.createdAt.toISOString(),
