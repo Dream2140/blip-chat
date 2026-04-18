@@ -1,0 +1,93 @@
+@import "tailwindcss";
+
+/* ============ blip Design System ============ */
+:root {
+  --bg: #FDF8F3;
+  --bg-elev: #FFFFFF;
+  --bg-sunk: #F4EDE4;
+  --ink: #1A1324;
+  --ink-2: #4B3B5E;
+  --ink-3: #8A7A9E;
+  --line: #EADFD2;
+  --line-2: #E5D5C4;
+
+  --primary: #6D28D9;
+  --primary-ink: #FFFFFF;
+  --primary-soft: #EDE4FF;
+
+  --pink: #FF5C8A;
+  --yellow: #FFC93C;
+  --mint: #3EDBB2;
+  --coral: #FF7A59;
+  --sky: #5BB7FF;
+
+  --bubble-me-bg: linear-gradient(135deg, #7C3AED 0%, #A855F7 100%);
+  --bubble-me-ink: #FFFFFF;
+  --bubble-them-bg: #FFFFFF;
+  --bubble-them-ink: #1A1324;
+
+  --shadow-card: 0 1px 0 rgba(26,19,36,0.04), 0 8px 24px rgba(26,19,36,0.06);
+  --shadow-pop: 0 2px 0 rgba(26,19,36,0.05), 0 12px 32px rgba(109,40,217,0.18);
+
+  --radius-bubble: 22px;
+  --radius-card: 20px;
+  --radius-chip: 999px;
+
+  --font-ui: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+[data-theme="dark"] {
+  --bg: #130B1F;
+  --bg-elev: #1E1330;
+  --bg-sunk: #0C0718;
+  --ink: #F5EFFF;
+  --ink-2: #C9BCE0;
+  --ink-3: #8A7AA8;
+  --line: #2A1E3E;
+  --line-2: #382950;
+
+  --primary: #A78BFA;
+  --primary-ink: #130B1F;
+  --primary-soft: #2A1E3E;
+
+  --bubble-me-bg: linear-gradient(135deg, #A855F7 0%, #EC4899 100%);
+  --bubble-me-ink: #FFFFFF;
+  --bubble-them-bg: #241838;
+  --bubble-them-ink: #F5EFFF;
+
+  --shadow-card: 0 1px 0 rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.4);
+  --shadow-pop: 0 2px 0 rgba(0,0,0,0.4), 0 12px 32px rgba(168,85,247,0.35);
+}
+
+/* ============ Reset ============ */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root { height: 100%; }
+
+body {
+  font-family: var(--font-ui);
+  background: var(--bg);
+  color: var(--ink);
+  font-feature-settings: "ss01", "ss02";
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  transition: background 0.4s ease, color 0.4s ease;
+}
+
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+input, textarea { font-family: inherit; color: inherit; }
+
+/* ============ Scrollbar ============ */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 3px; }
+
+/* ============ Animations ============ */
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes typing-bounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.5; }
+  30% { transform: translateY(-5px); opacity: 1; }
+}
