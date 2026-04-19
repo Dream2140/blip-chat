@@ -23,9 +23,12 @@ export function getGlobalSocket() {
 }
 let globalConnecting = false;
 let unloadListenerAdded = false;
+let syncInProgress = false;
 
 // Sync missed events after reconnect
 async function syncAfterReconnect() {
+  if (syncInProgress) return;
+  syncInProgress = true;
   try {
     const res = await apiFetch(`/api/sync?since=${encodeURIComponent(lastEventTimestamp)}`);
     if (!res.ok) return;
@@ -96,6 +99,8 @@ async function syncAfterReconnect() {
     );
   } catch (err) {
     console.error("[Sync] reconnect sync failed:", err);
+  } finally {
+    syncInProgress = false;
   }
 }
 
@@ -135,7 +140,7 @@ export function useSocket() {
         }
         // Sync missed events on reconnect (not first connect)
         if (wasConnectedBefore) {
-          syncAfterReconnect();
+          setTimeout(() => syncAfterReconnect(), 1000);
         }
         wasConnectedBefore = true;
       });

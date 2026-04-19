@@ -35,9 +35,6 @@ export async function GET(request: NextRequest) {
         id: true,
         nickname: true,
         avatarUrl: true,
-        bio: true,
-        lastSeenAt: true,
-        createdAt: true,
       },
       orderBy: { lastSeenAt: "desc" },
       take: 5,
@@ -76,11 +73,7 @@ export async function GET(request: NextRequest) {
     }));
 
     return NextResponse.json({
-      users: users.map((u) => ({
-        ...u,
-        lastSeenAt: u.lastSeenAt.toISOString(),
-        createdAt: u.createdAt.toISOString(),
-      })),
+      users,
       messages: messageResults,
     });
   });

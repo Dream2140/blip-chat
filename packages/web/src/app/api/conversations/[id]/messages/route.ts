@@ -71,7 +71,6 @@ export async function GET(
             sender: { select: userSelect },
             replyTo: { include: { sender: { select: userSelect } } },
             reactions: true,
-            readReceipts: { select: { userId: true } },
           },
           orderBy: { createdAt: "desc" },
           take: half,
@@ -82,7 +81,6 @@ export async function GET(
             sender: { select: userSelect },
             replyTo: { include: { sender: { select: userSelect } } },
             reactions: true,
-            readReceipts: { select: { userId: true } },
           },
           orderBy: { createdAt: "asc" },
           take: half + 1, // +1 to include the target message itself
@@ -122,9 +120,7 @@ export async function GET(
         deletedAt: m.deletedAt?.toISOString() || null,
         pinnedAt: m.pinnedAt?.toISOString() || null,
         createdAt: m.createdAt.toISOString(),
-        status: (m.senderId === auth.userId && m.readReceipts.some((r: { userId: string }) => r.userId !== auth.userId))
-          ? "read" as const
-          : "sent" as const,
+        status: "sent" as const,
         reactions: groupReactions(m.reactions, auth.userId),
       }));
 
@@ -142,7 +138,6 @@ export async function GET(
           include: { sender: { select: userSelect } },
         },
         reactions: true,
-        readReceipts: { select: { userId: true } },
       },
       orderBy: { createdAt: "desc" },
       take: limit + 1,
@@ -182,10 +177,7 @@ export async function GET(
         deletedAt: m.deletedAt?.toISOString() || null,
         pinnedAt: m.pinnedAt?.toISOString() || null,
         createdAt: m.createdAt.toISOString(),
-        // Status: "read" if anyone (other than sender) has a read receipt, else "sent"
-        status: (m.senderId === auth.userId && m.readReceipts.some((r: { userId: string }) => r.userId !== auth.userId))
-          ? "read" as const
-          : "sent" as const,
+        status: "sent" as const,
         reactions: groupReactions(m.reactions, auth.userId),
       }));
 

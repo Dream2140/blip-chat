@@ -2,16 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 
 const publicPaths = ["/login", "/register", "/api/auth/login", "/api/auth/register", "/api/auth/refresh"];
 
+const CSP =
+  "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' wss://blip-chat-ws.fly.dev https://blip-chat-ws.fly.dev; font-src 'self' https://fonts.gstatic.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests";
+
+const SECURITY_HEADERS: ReadonlyArray<[string, string]> = [
+  ["X-Content-Type-Options", "nosniff"],
+  ["X-Frame-Options", "DENY"],
+  ["Referrer-Policy", "strict-origin-when-cross-origin"],
+  ["Content-Security-Policy", CSP],
+  ...(process.env.NODE_ENV === "production"
+    ? [["Strict-Transport-Security", "max-age=31536000; includeSubDomains"] as [string, string]]
+    : []),
+];
+
 function withSecurityHeaders(response: NextResponse): NextResponse {
-  response.headers.set("X-Content-Type-Options", "nosniff");
-  response.headers.set("X-Frame-Options", "DENY");
-  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  response.headers.set(
-    "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' wss://blip-chat-ws.fly.dev https://blip-chat-ws.fly.dev; font-src 'self' https://fonts.gstatic.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"
-  );
-  if (process.env.NODE_ENV === "production") {
-    response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  for (const [key, value] of SECURITY_HEADERS) {
+    response.headers.set(key, value);
   }
   return response;
 }

@@ -142,23 +142,35 @@ export default function ChatLayout({
     if (isConnected) return;
 
     let interval: ReturnType<typeof setInterval> | null = null;
+    let attempt = 0;
 
-    function startPolling() {
-      if (interval) return;
-      interval = setInterval(fetchConversations, 30000);
+    function getDelay() {
+      // 30s, 45s, 67s, 100s, max 120s
+      return Math.min(30000 * Math.pow(1.5, attempt), 120000);
     }
-    function stopPolling() {
-      if (interval) { clearInterval(interval); interval = null; }
+
+    function schedulePoll() {
+      if (interval) clearInterval(interval);
+      interval = setInterval(() => {
+        fetchConversations();
+        attempt++;
+        schedulePoll(); // Reschedule with new delay
+      }, getDelay());
     }
+
     function onVisibility() {
-      document.hidden ? stopPolling() : startPolling();
+      if (document.hidden) {
+        if (interval) { clearInterval(interval); interval = null; }
+      } else {
+        schedulePoll();
+      }
     }
 
-    if (!document.hidden) startPolling();
+    if (!document.hidden) schedulePoll();
     document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
-      stopPolling();
+      if (interval) clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisibility);
     };
   }, [isConnected, fetchConversations]);
