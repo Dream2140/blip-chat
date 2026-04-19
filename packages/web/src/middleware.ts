@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 const publicPaths = ["/login", "/register", "/api/auth/login", "/api/auth/register", "/api/auth/refresh"];
 
 const CSP =
-  "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' wss://blip-chat-ws.fly.dev https://blip-chat-ws.fly.dev; font-src 'self' https://fonts.gstatic.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests";
+  "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob:; connect-src 'self' wss://blip-chat-ws.fly.dev https://blip-chat-ws.fly.dev; font-src 'self' https://fonts.gstatic.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests";
 
 const SECURITY_HEADERS: ReadonlyArray<[string, string]> = [
   ["X-Content-Type-Options", "nosniff"],
