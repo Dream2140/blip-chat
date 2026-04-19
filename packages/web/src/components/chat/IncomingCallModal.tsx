@@ -1,6 +1,6 @@
 "use client";
 
-import { useChatStore } from "@/stores/chat-store";
+import { useLiveStore } from "@/stores/live-store";
 import { UserAvatar } from "./UserAvatar";
 import { Icons } from "./Icons";
 
@@ -10,7 +10,7 @@ interface IncomingCallModalProps {
 }
 
 export function IncomingCallModal({ onAccept, onDecline }: IncomingCallModalProps) {
-  const nickname = useChatStore((s) => s.callRemoteNickname) || "Unknown";
+  const nickname = useLiveStore((s) => s.callRemoteNickname) || "Unknown";
 
   return (
     <div className="call-overlay">

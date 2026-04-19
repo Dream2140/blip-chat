@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { useChatStore } from "@/stores/chat-store";
+import { useAuthStore } from "@/stores/auth-store";
+import { useConversationStore } from "@/stores/conversation-store";
+import { useLiveStore } from "@/stores/live-store";
 import { apiFetch } from "@/lib/api-client";
 import { useSocket } from "@/hooks/useSocket";
 import { UserAvatar } from "./UserAvatar";
@@ -17,10 +19,10 @@ interface ConversationHeaderProps {
 }
 
 export function ConversationHeader({ conversationId }: ConversationHeaderProps) {
-  const conversation = useChatStore((s) =>
+  const conversation = useConversationStore((s) =>
     s.conversations.find((c) => c.id === conversationId)
   );
-  const currentUser = useChatStore((s) => s.currentUser);
+  const currentUser = useAuthStore((s) => s.currentUser);
   const [pinnedCount, setPinnedCount] = useState(0);
   const [pinnedMessages, setPinnedMessages] = useState<Message[]>([]);
   const [showPinned, setShowPinned] = useState(false);
@@ -49,7 +51,7 @@ export function ConversationHeader({ conversationId }: ConversationHeaderProps) 
         setPinnedMessages(items);
         pinnedCache.set(conversationId, { count: items.length, ts: Date.now() });
       })
-      .catch(() => {});
+      .catch((err) => console.error("[ConversationHeader] fetch pinned failed:", err));
   }, [conversationId]);
 
   const handlePinnedClick = useCallback(async () => {
@@ -64,7 +66,9 @@ export function ConversationHeader({ conversationId }: ConversationHeaderProps) 
         const data = await res.json();
         setPinnedMessages(data.items || []);
       }
-    } catch {}
+    } catch (err) {
+      console.error("[ConversationHeader] refresh pinned failed:", err);
+    }
     setShowPinned(true);
   }, [conversationId, showPinned]);
 
@@ -77,7 +81,7 @@ export function ConversationHeader({ conversationId }: ConversationHeaderProps) 
     const targetUserId = other.userId;
     const targetNickname = other.user.nickname || "Unknown";
 
-    useChatStore.getState().startCall(targetUserId, targetNickname);
+    useLiveStore.getState().startCall(targetUserId, targetNickname);
 
     const socket = getSocket();
     if (socket) {

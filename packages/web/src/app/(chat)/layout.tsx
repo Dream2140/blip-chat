@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useCallback } from "react";
 import { usePathname } from "next/navigation";
-import { useChatStore } from "@/stores/chat-store";
+import { useAuthStore } from "@/stores/auth-store";
+import { useConversationStore } from "@/stores/conversation-store";
+import { useLiveStore } from "@/stores/live-store";
 import { apiFetch } from "@/lib/api-client";
 import { useSocket } from "@/hooks/useSocket";
 import { Sidebar } from "@/components/chat/Sidebar";
@@ -19,7 +21,7 @@ export default function ChatLayout({
   const hasActiveChat = pathname.startsWith("/c/");
   const initialized = useRef(false);
   const { connect, disconnect } = useSocket();
-  const isConnected = useChatStore((s) => s.socketConnected);
+  const isConnected = useLiveStore((s) => s.socketConnected);
 
   const fetchConversations = useCallback(async () => {
     try {
@@ -27,7 +29,7 @@ export default function ChatLayout({
       if (!res.ok) return;
       const data = await res.json();
       if (data?.items) {
-        useChatStore.getState().setConversations(data.items);
+        useConversationStore.getState().setConversations(data.items);
 
         const totalUnread = (data.items as { unreadCount?: number }[]).reduce(
           (sum, c) => sum + (c.unreadCount ?? 0),
@@ -35,7 +37,9 @@ export default function ChatLayout({
         );
         document.title = totalUnread > 0 ? `(${totalUnread}) blip` : "blip";
       }
-    } catch {}
+    } catch (err) {
+      console.error("[ChatLayout] fetch conversations failed:", err);
+    }
   }, []);
 
   useEffect(() => {
@@ -77,9 +81,9 @@ export default function ChatLayout({
     apiFetch("/api/users/me")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data?.user) useChatStore.getState().setCurrentUser(data.user);
+        if (data?.user) useAuthStore.getState().setCurrentUser(data.user);
       })
-      .catch(() => {});
+      .catch((err) => console.error("[ChatLayout] fetch current user failed:", err));
 
     fetchConversations();
     connect();

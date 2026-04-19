@@ -2,7 +2,9 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
-import { useChatStore } from "@/stores/chat-store";
+import { useAuthStore } from "@/stores/auth-store";
+import { useConversationStore } from "@/stores/conversation-store";
+import { useLiveStore } from "@/stores/live-store";
 import { apiFetch } from "@/lib/api-client";
 import { MessageList } from "@/components/chat/MessageList";
 import { MessageInput } from "@/components/chat/MessageInput";
@@ -18,9 +20,9 @@ export default function ConversationPage() {
   const [error, setError] = useState("");
   const [replyTo, setReplyTo] = useState<Message | null>(null);
   const markedReadRef = useRef(false);
-  const isConnected = useChatStore((s) => s.socketConnected);
+  const isConnected = useLiveStore((s) => s.socketConnected);
 
-  const messages = useChatStore(
+  const messages = useConversationStore(
     (s) => s.messagesByConversation[conversationId] ?? EMPTY_MESSAGES
   );
 
@@ -32,12 +34,12 @@ export default function ConversationPage() {
       if (!res.ok) return;
       const data = await res.json();
       if (data?.items) {
-        useChatStore.getState().setMessages(conversationId, data.items);
+        useConversationStore.getState().setMessages(conversationId, data.items);
 
         // Mark as read ONCE when opening conversation
         if (!markedReadRef.current) {
           markedReadRef.current = true;
-          const currentUserId = useChatStore.getState().currentUser?.id;
+          const currentUserId = useAuthStore.getState().currentUser?.id;
           const lastOtherMsg = [...data.items]
             .reverse()
             .find((m: Message) => m.senderId !== currentUserId && !m.deletedAt);
@@ -46,15 +48,17 @@ export default function ConversationPage() {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ lastMessageId: lastOtherMsg.id }),
-            }).catch(() => {});
+            }).catch((err) => console.error("[ConversationPage] mark-read failed:", err));
           }
         }
       }
-    } catch {}
+    } catch (err) {
+      console.error("[ConversationPage] fetch messages failed:", err);
+    }
   }, [conversationId]);
 
   useEffect(() => {
-    useChatStore.getState().setActiveConversationId(conversationId);
+    useConversationStore.getState().setActiveConversationId(conversationId);
     setLoading(true);
     setError("");
     setReplyTo(null);
@@ -62,7 +66,7 @@ export default function ConversationPage() {
 
     async function init() {
       try {
-        const hasConvo = useChatStore
+        const hasConvo = useConversationStore
           .getState()
           .conversations.some((c) => c.id === conversationId);
 
@@ -71,7 +75,7 @@ export default function ConversationPage() {
           if (!res.ok) throw new Error("Conversation not found");
           const data = await res.json();
           if (data?.conversation) {
-            useChatStore.getState().addConversation({
+            useConversationStore.getState().addConversation({
               ...data.conversation,
               lastMessage: null,
               unreadCount: 0,
@@ -90,7 +94,7 @@ export default function ConversationPage() {
     init();
 
     return () => {
-      useChatStore.getState().setActiveConversationId(null);
+      useConversationStore.getState().setActiveConversationId(null);
     };
   }, [conversationId, fetchMessages]);
 

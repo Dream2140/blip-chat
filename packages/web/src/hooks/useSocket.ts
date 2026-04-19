@@ -4,7 +4,9 @@ import { useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 import { SocketEvents } from "@chat-app/shared";
 import type { ServerToClientEvents, ClientToServerEvents } from "@chat-app/shared";
-import { useChatStore } from "@/stores/chat-store";
+import { useAuthStore } from "@/stores/auth-store";
+import { useConversationStore } from "@/stores/conversation-store";
+import { useLiveStore } from "@/stores/live-store";
 import { apiFetch } from "@/lib/api-client";
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -13,14 +15,91 @@ const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "wss://blip-chat-ws.fly.dev";
 
 // Module-level refs — shared across all useSocket() instances
 let globalSocket: TypedSocket | null = null;
+let lastEventTimestamp: string = new Date().toISOString();
+let wasConnectedBefore = false;
 
 export function getGlobalSocket() {
   return globalSocket;
 }
 let globalConnecting = false;
 
+// Sync missed events after reconnect
+async function syncAfterReconnect() {
+  try {
+    const res = await apiFetch(`/api/sync?since=${encodeURIComponent(lastEventTimestamp)}`);
+    if (!res.ok) return;
+    const data = await res.json();
+
+    const currentUserId = useAuthStore.getState().currentUser?.id;
+    const store = useConversationStore.getState();
+
+    // Add new messages (skip own — already have via optimistic)
+    for (const msg of data.messages || []) {
+      if (msg.senderId === currentUserId) continue;
+      const existing = store.messagesByConversation[msg.conversationId];
+      if (existing?.some((m: { id: string }) => m.id === msg.id)) continue;
+
+      store.addMessage(msg.conversationId, {
+        id: msg.id,
+        conversationId: msg.conversationId,
+        senderId: msg.senderId,
+        sender: { nickname: msg.senderNickname } as never,
+        text: msg.text,
+        replyToId: msg.replyToId || null,
+        replyTo: null,
+        editedAt: null,
+        deletedAt: null,
+        createdAt: msg.createdAt,
+        status: "delivered",
+        reactions: [],
+      });
+    }
+
+    // Apply edits
+    for (const edit of data.editedMessages || []) {
+      store.updateMessage(edit.conversationId, edit.id, {
+        text: edit.text,
+        editedAt: edit.editedAt,
+      });
+    }
+
+    // Apply deletes
+    for (const del of data.deletedMessageIds || []) {
+      store.removeMessage(del.conversationId, del.id);
+    }
+
+    // Update conversation aggregates
+    for (const conv of data.conversations || []) {
+      store.updateConversation(conv.id, {
+        updatedAt: conv.updatedAt,
+        lastMessage: conv.lastMessageId
+          ? {
+              id: conv.lastMessageId,
+              conversationId: conv.id,
+              senderId: conv.lastMessageSenderId || "",
+              sender: {} as never,
+              text: conv.lastMessagePreview || "",
+              replyToId: null,
+              replyTo: null,
+              editedAt: null,
+              deletedAt: null,
+              createdAt: conv.lastMessageAt || conv.updatedAt,
+              status: "sent" as const,
+            }
+          : undefined,
+      });
+    }
+
+    console.log(
+      `[Sync] reconnect sync: ${(data.messages || []).length} new msgs, ${(data.editedMessages || []).length} edits, ${(data.deletedMessageIds || []).length} deletes`
+    );
+  } catch (err) {
+    console.error("[Sync] reconnect sync failed:", err);
+  }
+}
+
 export function useSocket() {
-  const isConnected = useChatStore((s) => s.socketConnected);
+  const isConnected = useLiveStore((s) => s.socketConnected);
 
   const connect = useCallback(async () => {
     if (globalSocket?.connected || globalConnecting) return;
@@ -48,33 +127,42 @@ export function useSocket() {
 
       socket.on("connect", () => {
         console.log("[Socket] connected ✓");
-        useChatStore.getState().setSocketConnected(true);
-        const conversationIds = useChatStore.getState().conversations.map((c) => c.id);
+        useLiveStore.getState().setSocketConnected(true);
+        const conversationIds = useConversationStore.getState().conversations.map((c) => c.id);
         if (conversationIds.length > 0) {
           socket.emit(SocketEvents.JOIN_CONVERSATIONS, { conversationIds });
         }
+        // Sync missed events on reconnect (not first connect)
+        if (wasConnectedBefore) {
+          syncAfterReconnect();
+        }
+        wasConnectedBefore = true;
       });
 
       socket.on("disconnect", (reason) => {
         console.log("[Socket] disconnected:", reason);
-        useChatStore.getState().setSocketConnected(false);
+        lastEventTimestamp = new Date().toISOString();
+        useLiveStore.getState().setSocketConnected(false);
       });
 
       socket.on("connect_error", (err) => {
         console.error("[Socket] connect error:", err.message);
-        useChatStore.getState().setSocketConnected(false);
+        useLiveStore.getState().setSocketConnected(false);
       });
 
       // MESSAGE_NEW — skip own messages (sender has optimistic update already)
       socket.on(SocketEvents.MESSAGE_NEW, (data) => {
-        const currentUserId = useChatStore.getState().currentUser?.id;
+        // Track latest event time for reconnect sync
+        if (data.createdAt) lastEventTimestamp = data.createdAt;
+
+        const currentUserId = useAuthStore.getState().currentUser?.id;
         if (data.senderId === currentUserId) return; // sender already has it
 
         // Also dedup by ID
-        const existing = useChatStore.getState().messagesByConversation[data.conversationId];
+        const existing = useConversationStore.getState().messagesByConversation[data.conversationId];
         if (existing?.some((m) => m.id === data.id)) return;
 
-        useChatStore.getState().addMessage(data.conversationId, {
+        useConversationStore.getState().addMessage(data.conversationId, {
           id: data.id,
           conversationId: data.conversationId,
           senderId: data.senderId,
@@ -91,34 +179,34 @@ export function useSocket() {
       });
 
       socket.on(SocketEvents.MESSAGE_UPDATED, (data) => {
-        useChatStore.getState().updateMessage(data.conversationId, data.id, {
+        useConversationStore.getState().updateMessage(data.conversationId, data.id, {
           text: data.text,
           editedAt: data.editedAt,
         });
       });
 
       socket.on(SocketEvents.MESSAGE_DELETED, (data) => {
-        useChatStore.getState().removeMessage(data.conversationId, data.id);
+        useConversationStore.getState().removeMessage(data.conversationId, data.id);
       });
 
       socket.on(SocketEvents.USER_ONLINE, (data) => {
-        useChatStore.getState().setUserOnline(data.userId);
+        useLiveStore.getState().setUserOnline(data.userId);
       });
 
       socket.on(SocketEvents.USER_OFFLINE, (data) => {
-        useChatStore.getState().setUserOffline(data.userId);
+        useLiveStore.getState().setUserOffline(data.userId);
       });
 
       socket.on(SocketEvents.USER_TYPING, (data) => {
-        useChatStore.getState().setUserTyping(data.conversationId, data.userId);
+        useLiveStore.getState().setUserTyping(data.conversationId, data.userId);
       });
 
       socket.on(SocketEvents.USER_STOP_TYPING, (data) => {
-        useChatStore.getState().clearUserTyping(data.conversationId, data.userId);
+        useLiveStore.getState().clearUserTyping(data.conversationId, data.userId);
       });
 
       socket.on(SocketEvents.CONVERSATION_CREATED, (data) => {
-        useChatStore.getState().addConversation({
+        useConversationStore.getState().addConversation({
           id: data.id,
           type: data.type,
           name: data.name,
@@ -134,14 +222,14 @@ export function useSocket() {
       // ── Call signaling events ── direct module-level handlers, no window hacks
       socket.on("call:initiate" as never, ((data: { callerId: string; callerNickname: string }) => {
         console.log("[Socket] call:initiate from", data.callerNickname);
-        useChatStore.getState().receiveCall(data.callerId, data.callerNickname);
+        useLiveStore.getState().receiveCall(data.callerId, data.callerNickname);
       }) as never);
 
       socket.on("call:accept" as never, (() => {
         console.log("[Socket] call:accept received");
-        useChatStore.getState().acceptCall();
+        useLiveStore.getState().acceptCall();
         // Caller side: start WebRTC offer
-        const targetId = useChatStore.getState().callRemoteUserId;
+        const targetId = useLiveStore.getState().callRemoteUserId;
         if (targetId) {
           import("@/hooks/useWebRTC").then(({ webrtcStartOffer }) => {
             webrtcStartOffer(targetId);
@@ -161,7 +249,7 @@ export function useSocket() {
 
       socket.on("call:offer" as never, ((data: { sdp: string }) => {
         console.log("[Socket] call:offer received");
-        const callerId = useChatStore.getState().callRemoteUserId;
+        const callerId = useLiveStore.getState().callRemoteUserId;
         if (callerId) {
           import("@/hooks/useWebRTC").then(({ webrtcHandleOffer }) => {
             webrtcHandleOffer(callerId, data.sdp);
@@ -193,7 +281,7 @@ export function useSocket() {
   const disconnect = useCallback(() => {
     globalSocket?.disconnect();
     globalSocket = null;
-    useChatStore.getState().setSocketConnected(false);
+    useLiveStore.getState().setSocketConnected(false);
   }, []);
 
   const emitTypingStart = useCallback((conversationId: string) => {
@@ -214,7 +302,7 @@ export function useSocket() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ lastMessageId }),
-      }).catch(() => {});
+      }).catch((err) => console.error("[useSocket] mark-read failed:", err));
     },
     []
   );

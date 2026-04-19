@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import { useChatStore } from "@/stores/chat-store";
+import { useAuthStore } from "@/stores/auth-store";
+import { useConversationStore } from "@/stores/conversation-store";
 import { apiFetch } from "@/lib/api-client";
 import { useToast } from "./Toast";
 import { Icons } from "./Icons";
@@ -48,12 +49,11 @@ export function MessageInput({
 
     setSending(true);
 
-    const store = useChatStore.getState();
-    const currentUser = store.currentUser;
+    const currentUser = useAuthStore.getState().currentUser;
     const tempId = `temp-${Date.now()}`;
 
     if (currentUser) {
-      store.addMessage(conversationId, {
+      useConversationStore.getState().addMessage(conversationId, {
         id: tempId,
         conversationId,
         senderId: currentUser.id,
@@ -87,8 +87,8 @@ export function MessageInput({
 
       if (!res.ok) {
         const msgs =
-          useChatStore.getState().messagesByConversation[conversationId] || [];
-        useChatStore
+          useConversationStore.getState().messagesByConversation[conversationId] || [];
+        useConversationStore
           .getState()
           .setMessages(
             conversationId,
@@ -100,8 +100,8 @@ export function MessageInput({
 
       const data = await res.json();
       const currentMsgs =
-        useChatStore.getState().messagesByConversation[conversationId] || [];
-      useChatStore
+        useConversationStore.getState().messagesByConversation[conversationId] || [];
+      useConversationStore
         .getState()
         .setMessages(
           conversationId,

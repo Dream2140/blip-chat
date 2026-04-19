@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useChatStore } from "@/stores/chat-store";
+import { useAuthStore } from "@/stores/auth-store";
 import { apiFetch } from "@/lib/api-client";
 import { useToast } from "@/components/chat/Toast";
 import { Icons } from "@/components/chat/Icons";
@@ -159,8 +159,8 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 /* ============================================================= */
 export default function SettingsPage() {
   const router = useRouter();
-  const currentUser = useChatStore((s) => s.currentUser);
-  const setCurrentUser = useChatStore((s) => s.setCurrentUser);
+  const currentUser = useAuthStore((s) => s.currentUser);
+  const setCurrentUser = useAuthStore((s) => s.setCurrentUser);
   const toast = useToast((s) => s.show);
 
   /* ── appearance state ── */

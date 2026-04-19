@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { useChatStore } from "@/stores/chat-store";
+import { useLiveStore } from "@/stores/live-store";
 import { useWebRTC, webrtcCleanup } from "@/hooks/useWebRTC";
 import { getGlobalSocket } from "@/hooks/useSocket";
 import { IncomingCallModal } from "./IncomingCallModal";
@@ -17,13 +17,13 @@ function emit(event: string, data: unknown) {
 }
 
 export function CallOverlay() {
-  const callState = useChatStore((s) => s.callState);
-  const remoteNickname = useChatStore((s) => s.callRemoteNickname);
-  const remoteUserId = useChatStore((s) => s.callRemoteUserId);
+  const callState = useLiveStore((s) => s.callState);
+  const remoteNickname = useLiveStore((s) => s.callRemoteNickname);
+  const remoteUserId = useLiveStore((s) => s.callRemoteUserId);
   const { toggleMute } = useWebRTC();
 
   const handleAccept = useCallback(() => {
-    useChatStore.getState().acceptCall();
+    useLiveStore.getState().acceptCall();
     if (remoteUserId) {
       emit("call:accept", { targetUserId: remoteUserId });
       // Callee waits for offer from caller (triggered by call:accept handler in useSocket)

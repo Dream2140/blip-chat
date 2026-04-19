@@ -11,7 +11,7 @@ export async function POST() {
     if (refreshToken) {
       await prisma.refreshToken
         .delete({ where: { token: refreshToken } })
-        .catch(() => {});
+        .catch((err) => console.error("[logout] delete refresh token failed:", err));
     }
 
     clearAuthCookies(cookieStore);

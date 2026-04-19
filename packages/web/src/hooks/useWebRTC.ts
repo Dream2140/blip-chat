@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { useChatStore } from "@/stores/chat-store";
+import { useLiveStore } from "@/stores/live-store";
 
 const ICE_SERVERS = [
   { urls: "stun:stun.l.google.com:19302" },
@@ -72,7 +72,7 @@ function createPC(targetUserId: string): RTCPeerConnection {
   conn.oniceconnectionstatechange = () => {
     console.log("[WebRTC] ICE state:", conn.iceConnectionState);
     if (conn.iceConnectionState === "connected" || conn.iceConnectionState === "completed") {
-      useChatStore.getState().acceptCall();
+      useLiveStore.getState().acceptCall();
     }
     if (conn.iceConnectionState === "failed" || conn.iceConnectionState === "disconnected") {
       console.warn("[WebRTC] connection failed/disconnected");
@@ -183,7 +183,7 @@ export function webrtcCleanup() {
     remoteAudio.remove();
     remoteAudio = null;
   }
-  useChatStore.getState().endCall();
+  useLiveStore.getState().endCall();
 }
 
 // Hook wrapper for components
@@ -193,7 +193,7 @@ export function useWebRTC() {
       const track = localStream.getAudioTracks()[0];
       if (track) {
         track.enabled = !track.enabled;
-        useChatStore.getState().toggleMute();
+        useLiveStore.getState().toggleMute();
       }
     }
   }, []);

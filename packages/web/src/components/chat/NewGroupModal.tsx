@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { UserAvatar } from "./UserAvatar";
 import { Icons } from "./Icons";
 import { apiFetch } from "@/lib/api-client";
+import { showToast } from "@/components/chat/Toast";
 import type { User } from "@chat-app/shared";
 
 interface NewGroupModalProps {
@@ -31,7 +32,10 @@ export function NewGroupModal({ onClose }: NewGroupModalProps) {
         const data = await res.json();
         setResults(data.users);
       }
-    } catch {}
+    } catch (err) {
+      console.error("[NewGroupModal] user search failed:", err);
+      showToast("Search failed — please try again");
+    }
   }, []);
 
   function toggleUser(user: User) {

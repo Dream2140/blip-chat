@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useChatStore } from "@/stores/chat-store";
+import { useAuthStore } from "@/stores/auth-store";
+import { useConversationStore } from "@/stores/conversation-store";
 import { UserAvatar } from "./UserAvatar";
 import type { Conversation } from "@chat-app/shared";
 
@@ -10,8 +11,8 @@ interface ConversationItemProps {
 }
 
 export function ConversationItem({ conversation }: ConversationItemProps) {
-  const activeConversationId = useChatStore((s) => s.activeConversationId);
-  const currentUser = useChatStore((s) => s.currentUser);
+  const activeConversationId = useConversationStore((s) => s.activeConversationId);
+  const currentUser = useAuthStore((s) => s.currentUser);
   const isActive = activeConversationId === conversation.id;
 
   const otherParticipant =

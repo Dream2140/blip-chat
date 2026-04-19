@@ -1,6 +1,6 @@
 "use client";
 
-import { useChatStore } from "@/stores/chat-store";
+import { useConversationStore } from "@/stores/conversation-store";
 import { apiFetch } from "@/lib/api-client";
 import { useToast } from "./Toast";
 import { UserAvatar } from "./UserAvatar";
@@ -54,7 +54,7 @@ export function MessageBubble({
 
     if (res.ok) {
       const data = await res.json();
-      useChatStore.getState().updateMessage(
+      useConversationStore.getState().updateMessage(
         message.conversationId,
         message.id,
         { pinnedAt: data.pinnedAt }
@@ -76,7 +76,7 @@ export function MessageBubble({
     if (res.ok) {
       const data = await res.json();
       // Update message reactions in store
-      useChatStore.getState().updateMessage(
+      useConversationStore.getState().updateMessage(
         message.conversationId,
         message.id,
         { reactions: data.reactions }

@@ -19,6 +19,10 @@ export const useToast = create<ToastState>((set) => ({
   hide: () => set({ message: null }),
 }));
 
+export function showToast(message: string, type?: "error" | "success" | "info") {
+  useToast.getState().show(message, type);
+}
+
 export function ToastContainer() {
   const message = useToast((s) => s.message);
   const type = useToast((s) => s.type);

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useChatStore } from "@/stores/chat-store";
+import { useAuthStore } from "@/stores/auth-store";
+import { useConversationStore } from "@/stores/conversation-store";
 import { apiFetch } from "@/lib/api-client";
 import { MessageBubble } from "./MessageBubble";
 import type { Message } from "@chat-app/shared";
@@ -16,7 +17,7 @@ interface MessageListProps {
 
 export function MessageList({ conversationId, messages, onReply }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const currentUser = useChatStore((s) => s.currentUser);
+  const currentUser = useAuthStore((s) => s.currentUser);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -80,7 +81,7 @@ export function MessageList({ conversationId, messages, onReply }: MessageListPr
       const data = await res.json();
 
       if (data?.items?.length > 0) {
-        const store = useChatStore.getState();
+        const store = useConversationStore.getState();
         const current = store.messagesByConversation[conversationId] ?? EMPTY_MESSAGES;
         // Prepend older messages, dedup by id
         const existingIds = new Set(current.map((m) => m.id));

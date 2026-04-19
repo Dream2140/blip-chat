@@ -11,5 +11,7 @@ export function playNotificationSound() {
     osc.start();
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
     osc.stop(ctx.currentTime + 0.15);
-  } catch {}
+  } catch (err) {
+    console.error("[notification-sound] play failed:", err);
+  }
 }

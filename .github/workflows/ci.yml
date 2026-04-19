@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: TypeScript check — shared
+        run: npx tsc --noEmit -p packages/shared/tsconfig.json
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+        working-directory: packages/web
+
+      - name: TypeScript check — web
+        run: npx tsc --noEmit -p packages/web/tsconfig.json
+
+      - name: TypeScript check — ws
+        run: npx tsc --noEmit -p packages/ws/tsconfig.json
+
+      - name: Lint — web
+        run: npm run lint -w packages/web

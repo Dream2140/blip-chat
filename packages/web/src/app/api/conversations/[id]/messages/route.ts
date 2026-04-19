@@ -156,10 +156,16 @@ export async function POST(
       },
     });
 
-    // Update conversation's updatedAt
+    // Update conversation aggregates + updatedAt
     await prisma.conversation.update({
       where: { id: conversationId },
-      data: { updatedAt: new Date() },
+      data: {
+        updatedAt: new Date(),
+        lastMessageId: message.id,
+        lastMessageAt: message.createdAt,
+        lastMessagePreview: message.text.slice(0, 100),
+        lastMessageSenderId: message.senderId,
+      },
     });
 
     // Publish to Redis for real-time delivery

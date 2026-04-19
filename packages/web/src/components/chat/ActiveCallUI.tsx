@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useChatStore } from "@/stores/chat-store";
+import { useLiveStore } from "@/stores/live-store";
 import { UserAvatar } from "./UserAvatar";
 import { Icons } from "./Icons";
 
@@ -11,8 +11,8 @@ interface ActiveCallUIProps {
 }
 
 export function ActiveCallUI({ onToggleMute, onEndCall }: ActiveCallUIProps) {
-  const nickname = useChatStore((s) => s.callRemoteNickname) || "Unknown";
-  const isMuted = useChatStore((s) => s.callIsMuted);
+  const nickname = useLiveStore((s) => s.callRemoteNickname) || "Unknown";
+  const isMuted = useLiveStore((s) => s.callIsMuted);
   const [elapsed, setElapsed] = useState(0);
   const startRef = useRef(Date.now());
 

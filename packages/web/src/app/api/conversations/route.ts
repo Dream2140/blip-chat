@@ -24,43 +24,68 @@ export async function GET(request: NextRequest) {
             },
           },
         },
-        messages: {
-          orderBy: { createdAt: "desc" },
-          take: 1,
-          select: {
-            id: true,
-            conversationId: true,
-            senderId: true,
-            text: true,
-            editedAt: true,
-            deletedAt: true,
-            createdAt: true,
-          },
-        },
       },
       orderBy: { updatedAt: "desc" },
     });
 
-    // Batch unread counts in ONE query instead of N+1
+    // Unread counts via cursor: count messages after lastReadMessageId
+    // Get current user's participant records with read cursors
+    const myParticipants = await prisma.conversationParticipant.findMany({
+      where: { userId: auth.userId, conversationId: { in: conversations.map((c) => c.id) } },
+      select: { conversationId: true, lastReadMessageId: true },
+    });
+    const cursorMap = new Map(myParticipants.map((p) => [p.conversationId, p.lastReadMessageId]));
+
+    // For conversations with a read cursor, count messages after that cursor's createdAt
+    // For conversations without a cursor, count all messages from others
+    const unreadMap = new Map<string, number>();
     const convoIds = conversations.map((c) => c.id);
-    const unreadCounts = convoIds.length > 0
-      ? await prisma.message.groupBy({
+
+    if (convoIds.length > 0) {
+      // Conversations with no read cursor — count all messages from others
+      const noCursorIds = convoIds.filter((id) => !cursorMap.get(id));
+      if (noCursorIds.length > 0) {
+        const counts = await prisma.message.groupBy({
           by: ["conversationId"],
           where: {
-            conversationId: { in: convoIds },
+            conversationId: { in: noCursorIds },
             senderId: { not: auth.userId },
             deletedAt: null,
-            readReceipts: { none: { userId: auth.userId } },
           },
           _count: true,
-        })
-      : [];
-    const unreadMap = new Map(
-      unreadCounts.map((u) => [u.conversationId, u._count])
-    );
+        });
+        for (const c of counts) unreadMap.set(c.conversationId, c._count);
+      }
+
+      // Conversations with read cursor — count messages after the cursor message
+      const withCursorIds = convoIds.filter((id) => cursorMap.get(id));
+      if (withCursorIds.length > 0) {
+        // Get createdAt of each cursor message
+        const cursorMessageIds = withCursorIds.map((id) => cursorMap.get(id)!);
+        const cursorMessages = await prisma.message.findMany({
+          where: { id: { in: cursorMessageIds } },
+          select: { id: true, conversationId: true, createdAt: true },
+        });
+        const cursorDateMap = new Map(cursorMessages.map((m) => [m.conversationId, m.createdAt]));
+
+        // Count messages after each cursor
+        for (const convId of withCursorIds) {
+          const cursorDate = cursorDateMap.get(convId);
+          if (!cursorDate) continue;
+          const count = await prisma.message.count({
+            where: {
+              conversationId: convId,
+              senderId: { not: auth.userId },
+              deletedAt: null,
+              createdAt: { gt: cursorDate },
+            },
+          });
+          if (count > 0) unreadMap.set(convId, count);
+        }
+      }
+    }
 
     const items = conversations.map((c) => {
-        const lastMessage = c.messages[0] || null;
         const unreadCount = unreadMap.get(c.id) || 0;
 
         return {
@@ -77,18 +102,18 @@ export async function GET(request: NextRequest) {
             role: p.role,
             joinedAt: p.joinedAt.toISOString(),
           })),
-          lastMessage: lastMessage
+          lastMessage: c.lastMessageId
             ? {
-                id: lastMessage.id,
-                conversationId: lastMessage.conversationId,
-                senderId: lastMessage.senderId,
+                id: c.lastMessageId,
+                conversationId: c.id,
+                senderId: c.lastMessageSenderId || "",
                 sender: {} as never,
-                text: lastMessage.text,
+                text: c.lastMessagePreview || "",
                 replyToId: null,
                 replyTo: null,
-                editedAt: lastMessage.editedAt?.toISOString() || null,
-                deletedAt: lastMessage.deletedAt?.toISOString() || null,
-                createdAt: lastMessage.createdAt.toISOString(),
+                editedAt: null,
+                deletedAt: null,
+                createdAt: c.lastMessageAt?.toISOString() || c.updatedAt.toISOString(),
                 status: "sent" as const,
               }
             : null,

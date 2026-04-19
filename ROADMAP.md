@@ -121,6 +121,15 @@ v0.1 — MVP задеплоен. v0.2 — превращаем в реальны
 - [x] **Double messages** — skip own messages from WebSocket
 - [x] **Profile update bio:null** — Zod schema accepts nullable
 
+## Architecture Improvements ✅
+
+- [x] **Conversation aggregates** — lastMessageId/At/Preview/SenderId on Conversation, maintained on message send
+- [x] **Read cursor** — lastReadMessageId/lastReadAt on ConversationParticipant, replaces per-message receipt counting
+- [x] **Sync after reconnect** — GET /api/sync?since=timestamp, called on WS reconnect to catch missed events
+- [x] **Store split** — chat-store split into auth-store, conversation-store, live-store
+- [x] **CI gates** — GitHub Actions: typecheck + lint before deploy, deploy triggers only after CI passes
+- [x] **Error visibility** — all silent .catch(() => {}) replaced with console.error or toast
+
 ## E2E Tests — 27 passing
 
 Auth (10), Sidebar (3), 1:1 Chat (6), Group Chat (2), API Validation (4), Bug Fixes (2)

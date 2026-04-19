@@ -48,10 +48,17 @@ model Conversation {
   createdAt DateTime         @default(now())
   updatedAt DateTime         @updatedAt
 
+  // Aggregates — maintained on message send, avoids joins for sidebar
+  lastMessageId      String?
+  lastMessageAt      DateTime?
+  lastMessagePreview String?
+  lastMessageSenderId String?
+
   participants ConversationParticipant[]
   messages     Message[]
 
   @@index([updatedAt])
+  @@index([lastMessageAt])
 }
 
 enum ConversationType {
@@ -72,6 +79,10 @@ model ConversationParticipant {
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   role           ParticipantRole @default(MEMBER)
   joinedAt       DateTime        @default(now())
+
+  // Read cursor — replaces per-message receipt counting for unread
+  lastReadMessageId String?
+  lastReadAt        DateTime?
 
   @@unique([conversationId, userId])
   @@index([userId])

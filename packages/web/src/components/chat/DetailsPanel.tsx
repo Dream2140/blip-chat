@@ -1,13 +1,14 @@
 "use client";
 
-import { useChatStore } from "@/stores/chat-store";
+import { useAuthStore } from "@/stores/auth-store";
+import { useConversationStore } from "@/stores/conversation-store";
 import { UserAvatar } from "./UserAvatar";
 import { Icons } from "./Icons";
 
 export function DetailsPanel() {
-  const activeConversationId = useChatStore((s) => s.activeConversationId);
-  const currentUser = useChatStore((s) => s.currentUser);
-  const conversation = useChatStore((s) =>
+  const activeConversationId = useConversationStore((s) => s.activeConversationId);
+  const currentUser = useAuthStore((s) => s.currentUser);
+  const conversation = useConversationStore((s) =>
     s.conversations.find((c) => c.id === activeConversationId)
   );
 

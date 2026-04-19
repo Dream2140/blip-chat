@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useChatStore } from "@/stores/chat-store";
+import { useAuthStore } from "@/stores/auth-store";
+import { useConversationStore } from "@/stores/conversation-store";
 import { apiFetch } from "@/lib/api-client";
 import { ConversationItem } from "./ConversationItem";
 import { UserAvatar } from "./UserAvatar";
@@ -28,9 +29,9 @@ type Tab = "chats" | "people";
 
 export function Sidebar() {
   const router = useRouter();
-  const conversations = useChatStore((s) => s.conversations);
-  const currentUser = useChatStore((s) => s.currentUser);
-  const addConversation = useChatStore((s) => s.addConversation);
+  const conversations = useConversationStore((s) => s.conversations);
+  const currentUser = useAuthStore((s) => s.currentUser);
+  const addConversation = useConversationStore((s) => s.addConversation);
   const [showNewGroup, setShowNewGroup] = useState(false);
   const [tab, setTab] = useState<Tab>("chats");
   const [allUsers, setAllUsers] = useState<User[]>([]);

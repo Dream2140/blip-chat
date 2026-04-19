@@ -1,13 +1,17 @@
 name: Deploy
 
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
 
 jobs:
   deploy-web:
     runs-on: ubuntu-latest
-    if: contains(github.event.head_commit.modified, 'packages/web/') || contains(github.event.head_commit.modified, 'packages/shared/')
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push'
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
@@ -19,7 +23,9 @@ jobs:
 
   deploy-ws:
     runs-on: ubuntu-latest
-    if: contains(github.event.head_commit.modified, 'packages/ws/') || contains(github.event.head_commit.modified, 'packages/shared/')
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push'
     steps:
       - uses: actions/checkout@v4
       - uses: superfly/flyctl-actions/setup-flyctl@master
