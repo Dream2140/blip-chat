@@ -20,8 +20,8 @@ v0.1 — MVP задеплоен. v0.2 — превращаем в реальны
 - [x] **Optimistic UI fix** — temp-message заменяется реальным
 - [x] **Infinite scroll вверх** — загрузка старых сообщений
 - [x] **Scroll-to-bottom кнопка** — центрирована, alignSelf:center
-- [ ] **Loading states** — skeleton loader (TODO)
-- [ ] **Connection status indicator** — offline banner (TODO)
+- [x] **Loading states** — shimmer skeleton loaders (messages + sidebar)
+- [x] **Connection status indicator** — red "connecting..." / green "connected" banner
 
 ---
 
@@ -35,16 +35,16 @@ v0.1 — MVP задеплоен. v0.2 — превращаем в реальны
 - [x] **Reaction chips** — под bubble, toggle on click
 - [x] **Reply-to UI** — preview в composer, quote в bubble
 - [x] **Reply-to API** — POST возвращает replyTo object (was bug, fixed)
-- [ ] **Edit message UI** — inline editing (API exists)
-- [ ] **Delete message UI** — confirmation modal (API exists)
-- [ ] **Context menu** — long press / right click
+- [x] **Edit message UI** — inline editing with save/cancel, "(edited)" label
+- [x] **Delete message UI** — inline confirmation + toast feedback
+- [x] **Context menu** — right-click menu (edit/delete/reply/pin)
 
 ### Patch 0.2.1 — Emoji Picker & Rich Composer ✅
 
 - [x] **Emoji picker popup** — 5 категорий, 8-column grid
 - [x] **Multi-line textarea** — auto-resize до 120px
 - [x] **Emoji toggle** — 😊 кнопка в composer
-- [ ] **Typing debounce** — не отправлять stop при продолжении набора
+- [x] **Typing debounce** — 3s dedup, 5s auto-stop, cleanup on unmount
 
 ### Patch 0.2.2 — Profile & Settings ✅
 
