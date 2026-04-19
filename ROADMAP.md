@@ -144,28 +144,24 @@ v0.2 — фичи есть, но проект не hardened. v0.3 — стаби
 
 ---
 
-## Patch 0.3.0 — Security Hardening (CRITICAL)
+## Patch 0.3.0 — Security Hardening ✅
 
-Найдено аудитом, приоритет максимальный:
+- [x] **JWT secrets validation** — throw в production если не заданы
+- [x] **Authorization на pin/reactions** — проверка participant перед pin/react
+- [x] **Rate limiting** — in-memory limiter: auth 5-10/min, messages 30/min, search 15/min
+- [x] **Account enumeration fix** — generic error на register
+- [x] **Input sanitization** — NaN guard, max 4000 chars, max 50 participants
+- [x] **CSP + security headers** — CSP, X-Frame-Options, nosniff, Referrer-Policy
+- [x] **Secure cookie flags** — verified: httpOnly, secure, sameSite=strict
 
-- [ ] **JWT secrets validation** — throw на старте если JWT_SECRET / JWT_REFRESH_SECRET не заданы (сейчас fallback на "dev-secret-change-me")
-- [ ] **Authorization на pin/reactions** — проверять что юзер participant conversation перед pin/react (сейчас любой аутентифицированный может)
-- [ ] **Rate limiting** — middleware с in-memory limiter: auth endpoints (5/min), messages (30/min), search (10/min)
-- [ ] **Account enumeration fix** — register/login возвращают одинаковые ошибки ("Invalid credentials" вместо "Email not found")
-- [ ] **Input sanitization** — parseInt NaN guard на limit/offset, max participant count (50), max message length (4000)
-- [ ] **CSP headers** — Content-Security-Policy в Next.js middleware
-- [ ] **Secure cookie flags** — проверить httpOnly, secure, sameSite=strict на всех cookies
+## Patch 0.3.1 — Stability Fixes ✅
 
-## Patch 0.3.1 — Stability Fixes
-
-Найдено аудитом, разные приоритеты:
-
-- [ ] **Fix ws without Redis** — registerSocketHandlers() должен вызываться всегда, Redis optional для pub/sub
-- [ ] **Read cursor race condition** — использовать database-level comparison вместо fetch-then-update
-- [ ] **Clean `as never` casts** — sender в socket events должен передавать реальные данные, убрать пустые объекты
-- [ ] **Global socket cleanup** — на page unload закрывать socket, очищать module-level state
-- [ ] **WebRTC SDP validation** — валидировать SDP перед передачей в RTCPeerConnection
-- [ ] **Unhandled promise rejections** — wrap socket handlers в try/catch на ws стороне
+- [x] **Fix ws without Redis** — registerSocketHandlers() вызывается всегда, redis parameter nullable
+- [x] **Read cursor race condition** — single-query JOIN вместо fetch-then-update
+- [x] **Clean `as never` casts** — sender теперь имеет id/nickname/avatarUrl
+- [x] **Global socket cleanup** — beforeunload disconnect, одноразовый listener
+- [x] **WebRTC SDP validation** — проверка type/sdp перед RTCSessionDescription
+- [x] **Unhandled promise rejections** — все 12 socket handlers обёрнуты в try/catch
 
 ## Patch 0.3.2 — Feature Completions
 
