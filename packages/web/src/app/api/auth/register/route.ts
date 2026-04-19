@@ -8,9 +8,15 @@ import {
   setAuthCookies,
 } from "@/lib/auth";
 import { registerSchema } from "@/lib/validators";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = request.headers.get("x-forwarded-for") || "unknown";
+    if (!rateLimit(`register:${ip}`, 5)) {
+      return NextResponse.json({ error: "Too many attempts, try again later" }, { status: 429 });
+    }
+
     const body = await request.json();
     const result = registerSchema.safeParse(body);
 
@@ -28,9 +34,8 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingUser) {
-      const field = existingUser.email === email ? "Email" : "Nickname";
       return NextResponse.json(
-        { error: `${field} already taken` },
+        { error: "Registration failed — please try different credentials" },
         { status: 409 }
       );
     }

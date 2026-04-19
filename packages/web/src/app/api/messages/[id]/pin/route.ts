@@ -21,6 +21,16 @@ export async function POST(
       );
     }
 
+    const isParticipant = await prisma.conversationParticipant.findFirst({
+      where: { conversationId: message.conversationId, userId: auth.userId },
+    });
+    if (!isParticipant) {
+      return NextResponse.json(
+        { error: "Not a participant" },
+        { status: 403 }
+      );
+    }
+
     const isPinned = message.pinnedAt !== null;
 
     const updated = await prisma.message.update({

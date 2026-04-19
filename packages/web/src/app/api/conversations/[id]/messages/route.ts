@@ -4,6 +4,7 @@ import { withAuth } from "@/lib/api-helpers";
 import { sendMessageSchema } from "@/lib/validators";
 import { publishMessageEvent } from "@/lib/redis";
 import { SocketEvents } from "@chat-app/shared";
+import { rateLimit } from "@/lib/rate-limit";
 
 function groupReactions(
   reactions: Array<{ emoji: string; userId: string }>,
@@ -36,7 +37,7 @@ export async function GET(
     const { id: conversationId } = await params;
     const cursor = req.nextUrl.searchParams.get("cursor");
     const limit = Math.min(
-      parseInt(req.nextUrl.searchParams.get("limit") || "50", 10),
+      parseInt(req.nextUrl.searchParams.get("limit") || "50", 10) || 50,
       100
     );
 
@@ -121,6 +122,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   return withAuth(request, async (req, auth) => {
+    if (!rateLimit(`msg:${auth.userId}`, 30)) {
+      return NextResponse.json({ error: "Sending too fast" }, { status: 429 });
+    }
+
     const { id: conversationId } = await params;
     const body = await req.json();
     const result = sendMessageSchema.safeParse(body);
@@ -128,6 +133,13 @@ export async function POST(
     if (!result.success) {
       return NextResponse.json(
         { error: result.error.issues[0].message },
+        { status: 400 }
+      );
+    }
+
+    if (result.data.text.length > 4000) {
+      return NextResponse.json(
+        { error: "Message too long (max 4000 characters)" },
         { status: 400 }
       );
     }

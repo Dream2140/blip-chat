@@ -22,6 +22,7 @@ export function getGlobalSocket() {
   return globalSocket;
 }
 let globalConnecting = false;
+let unloadListenerAdded = false;
 
 // Sync missed events after reconnect
 async function syncAfterReconnect() {
@@ -43,7 +44,7 @@ async function syncAfterReconnect() {
         id: msg.id,
         conversationId: msg.conversationId,
         senderId: msg.senderId,
-        sender: { nickname: msg.senderNickname } as never,
+        sender: { id: msg.senderId, nickname: msg.senderNickname, avatarUrl: null } as never,
         text: msg.text,
         replyToId: msg.replyToId || null,
         replyTo: null,
@@ -77,7 +78,7 @@ async function syncAfterReconnect() {
               id: conv.lastMessageId,
               conversationId: conv.id,
               senderId: conv.lastMessageSenderId || "",
-              sender: {} as never,
+              sender: { id: conv.lastMessageSenderId || "", nickname: "", avatarUrl: null } as never,
               text: conv.lastMessagePreview || "",
               replyToId: null,
               replyTo: null,
@@ -166,7 +167,7 @@ export function useSocket() {
           id: data.id,
           conversationId: data.conversationId,
           senderId: data.senderId,
-          sender: {} as never,
+          sender: { id: data.senderId, nickname: "", avatarUrl: null } as never,
           text: data.text,
           replyToId: data.replyToId,
           replyTo: null,
@@ -271,6 +272,14 @@ export function useSocket() {
       }) as never);
 
       globalSocket = socket;
+
+      // Clean disconnect on page unload to avoid dangling connections
+      if (typeof window !== "undefined" && !unloadListenerAdded) {
+        unloadListenerAdded = true;
+        window.addEventListener("beforeunload", () => {
+          globalSocket?.disconnect();
+        });
+      }
     } catch (err) {
       console.error("[Socket] connection failed:", err);
     } finally {

@@ -32,37 +32,37 @@ export async function POST(
       );
     }
 
-    // Update participant's read cursor (only advance forward, never back)
-    const participant = await prisma.conversationParticipant.findFirst({
-      where: { conversationId, userId: auth.userId },
-      select: { id: true, lastReadMessageId: true },
-    });
+    // Fetch participant with cursor message's createdAt in one query
+    const participantRows = await prisma.$queryRaw<
+      Array<{ id: string; lastReadMessageCreatedAt: Date | null }>
+    >`
+      SELECT cp."id", m."createdAt" AS "lastReadMessageCreatedAt"
+      FROM "ConversationParticipant" cp
+      LEFT JOIN "Message" m ON m."id" = cp."lastReadMessageId"
+      WHERE cp."conversationId" = ${conversationId} AND cp."userId" = ${auth.userId}
+      LIMIT 1
+    `;
 
+    const participant = participantRows[0];
     if (!participant) {
       return NextResponse.json({ error: "Not a participant" }, { status: 403 });
     }
 
-    // Only advance cursor if this message is newer
-    let shouldUpdate = true;
-    if (participant.lastReadMessageId) {
-      const currentCursor = await prisma.message.findFirst({
-        where: { id: participant.lastReadMessageId },
-        select: { createdAt: true },
-      });
-      if (currentCursor && currentCursor.createdAt >= targetMessage.createdAt) {
-        shouldUpdate = false;
-      }
+    // Only advance cursor if this message is newer than the current cursor
+    if (
+      participant.lastReadMessageCreatedAt &&
+      participant.lastReadMessageCreatedAt >= targetMessage.createdAt
+    ) {
+      return NextResponse.json({ ok: true });
     }
 
-    if (shouldUpdate) {
-      await prisma.conversationParticipant.update({
-        where: { id: participant.id },
-        data: {
-          lastReadMessageId: lastMessageId,
-          lastReadAt: new Date(),
-        },
-      });
-    }
+    await prisma.conversationParticipant.update({
+      where: { id: participant.id },
+      data: {
+        lastReadMessageId: lastMessageId,
+        lastReadAt: new Date(),
+      },
+    });
 
     return NextResponse.json({ ok: true });
   });

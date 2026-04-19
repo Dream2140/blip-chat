@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
+import { rateLimit } from "@/lib/rate-limit";
 
 export interface MessageSearchResult {
   id: string;
@@ -14,6 +15,10 @@ export interface MessageSearchResult {
 // GET /api/search?q=<query> — global search across users and messages
 export async function GET(request: NextRequest) {
   return withAuth(request, async (req, auth) => {
+    if (!rateLimit(`search:${auth.userId}`, 15)) {
+      return NextResponse.json({ error: "Too many searches" }, { status: 429 });
+    }
+
     const q = req.nextUrl.searchParams.get("q")?.trim();
 
     if (!q || q.length < 2) {

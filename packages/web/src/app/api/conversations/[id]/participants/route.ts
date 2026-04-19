@@ -19,6 +19,13 @@ export async function POST(
       );
     }
 
+    if (userIds.length > 50) {
+      return NextResponse.json(
+        { error: "Cannot add more than 50 participants at once" },
+        { status: 400 }
+      );
+    }
+
     // Verify conversation is GROUP and user is admin
     const conversation = await prisma.conversation.findFirst({
       where: { id: conversationId, type: "GROUP" },

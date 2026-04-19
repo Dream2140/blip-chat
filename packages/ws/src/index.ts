@@ -62,7 +62,7 @@ async function start() {
 
     io.on("connection", (socket) => {
       console.log(`User connected: ${socket.data.userId}`);
-      // No Redis — pass null, handlers will skip redis publish
+      registerSocketHandlers(io, socket, null);
     });
 
     console.log("Running without Redis (no pub/sub)");

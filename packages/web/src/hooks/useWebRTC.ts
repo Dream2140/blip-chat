@@ -111,12 +111,18 @@ export async function webrtcStartOffer(targetUserId: string) {
 export async function webrtcHandleOffer(targetUserId: string, sdp: string) {
   try {
     console.log("[WebRTC] handling offer from", targetUserId);
+    const parsed = JSON.parse(sdp);
+    if (!parsed || !parsed.type || !parsed.sdp) {
+      console.warn("[WebRTC] invalid SDP received in offer");
+      return;
+    }
+
     const stream = await getLocalStream();
     const conn = createPC(targetUserId);
 
     stream.getTracks().forEach((track) => conn.addTrack(track, stream));
 
-    await conn.setRemoteDescription(new RTCSessionDescription(JSON.parse(sdp)));
+    await conn.setRemoteDescription(new RTCSessionDescription(parsed));
 
     // Process any ICE candidates that arrived before the offer
     for (const c of pendingCandidates) {
@@ -143,8 +149,14 @@ export async function webrtcHandleOffer(targetUserId: string, sdp: string) {
 export async function webrtcHandleAnswer(sdp: string) {
   try {
     console.log("[WebRTC] handling answer");
+    const parsed = JSON.parse(sdp);
+    if (!parsed || !parsed.type || !parsed.sdp) {
+      console.warn("[WebRTC] invalid SDP received in answer");
+      return;
+    }
+
     if (pc && pc.signalingState === "have-local-offer") {
-      await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(sdp)));
+      await pc.setRemoteDescription(new RTCSessionDescription(parsed));
 
       // Process queued ICE candidates
       for (const c of pendingCandidates) {

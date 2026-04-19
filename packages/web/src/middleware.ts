@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 
 const publicPaths = ["/login", "/register", "/api/auth/login", "/api/auth/register", "/api/auth/refresh"];
 
+function withSecurityHeaders(response: NextResponse): NextResponse {
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("X-Frame-Options", "DENY");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' wss://blip-chat-ws.fly.dev https://blip-chat-ws.fly.dev; font-src 'self' https://fonts.gstatic.com; frame-ancestors 'none'"
+  );
+  return response;
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -16,7 +27,7 @@ export function middleware(request: NextRequest) {
     if ((pathname === "/login" || pathname === "/register") && hasAccessToken) {
       return NextResponse.redirect(new URL("/", request.url));
     }
-    return NextResponse.next();
+    return withSecurityHeaders(NextResponse.next());
   }
 
   // For protected API routes, return 401
@@ -38,7 +49,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  return NextResponse.next();
+  return withSecurityHeaders(NextResponse.next());
 }
 
 export const config = {

@@ -31,6 +31,16 @@ export async function POST(
       );
     }
 
+    const isParticipant = await prisma.conversationParticipant.findFirst({
+      where: { conversationId: message.conversationId, userId: auth.userId },
+    });
+    if (!isParticipant) {
+      return NextResponse.json(
+        { error: "Not a participant" },
+        { status: 403 }
+      );
+    }
+
     // Toggle: if reaction exists, remove it; otherwise add it
     const existing = await prisma.reaction.findUnique({
       where: {

@@ -4,9 +4,8 @@ import { cookies } from "next/headers";
 import crypto from "node:crypto";
 import { prisma } from "./prisma";
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-me";
-const JWT_REFRESH_SECRET =
-  process.env.JWT_REFRESH_SECRET || "dev-refresh-secret-change-me";
+const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === "production" ? (() => { throw new Error("JWT_SECRET is required in production"); })() : "dev-secret-change-me");
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || (process.env.NODE_ENV === "production" ? (() => { throw new Error("JWT_REFRESH_SECRET is required in production"); })() : "dev-secret-change-me");
 
 const ACCESS_TOKEN_TTL = 15 * 60; // 15 minutes
 const REFRESH_TOKEN_TTL = 30 * 24 * 60 * 60; // 30 days

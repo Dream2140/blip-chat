@@ -8,9 +8,15 @@ import {
   setAuthCookies,
 } from "@/lib/auth";
 import { loginSchema } from "@/lib/validators";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = request.headers.get("x-forwarded-for") || "unknown";
+    if (!rateLimit(`login:${ip}`, 10)) {
+      return NextResponse.json({ error: "Too many attempts, try again later" }, { status: 429 });
+    }
+
     const body = await request.json();
     const result = loginSchema.safeParse(body);
 

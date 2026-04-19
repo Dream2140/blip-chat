@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
                 id: c.lastMessageId,
                 conversationId: c.id,
                 senderId: c.lastMessageSenderId || "",
-                sender: {} as never,
+                sender: { id: c.lastMessageSenderId || "", nickname: "", avatarUrl: null } as never,
                 text: c.lastMessagePreview || "",
                 replyToId: null,
                 replyTo: null,
