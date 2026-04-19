@@ -30,6 +30,7 @@ type Tab = "chats" | "people";
 export function Sidebar() {
   const router = useRouter();
   const conversations = useConversationStore((s) => s.conversations);
+  const conversationsLoaded = useConversationStore((s) => s.conversationsLoaded);
   const currentUser = useAuthStore((s) => s.currentUser);
   const addConversation = useConversationStore((s) => s.addConversation);
   const [showNewGroup, setShowNewGroup] = useState(false);
@@ -347,7 +348,9 @@ export function Sidebar() {
         <>
           <div className="convo-section-label">direct messages</div>
           <div className="convo-list">
-            {filteredConversations.length === 0 ? (
+            {!conversationsLoaded && conversations.length === 0 ? (
+              <SidebarSkeletons />
+            ) : filteredConversations.length === 0 ? (
               <div
                 style={{
                   textAlign: "center",
@@ -441,6 +444,22 @@ export function Sidebar() {
 
       {showNewGroup && <NewGroupModal onClose={() => setShowNewGroup(false)} />}
     </aside>
+  );
+}
+
+function SidebarSkeletons() {
+  return (
+    <>
+      {[...Array(5)].map((_, i) => (
+        <div key={i} className="convo" style={{ cursor: "default" }}>
+          <div className="skeleton" style={{ width: 44, height: 44, borderRadius: 14 }} />
+          <div className="convo-body" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div className="skeleton" style={{ width: 100 + (i * 20) % 60, height: 14 }} />
+            <div className="skeleton" style={{ width: 140 + (i * 25) % 80, height: 12 }} />
+          </div>
+        </div>
+      ))}
+    </>
   );
 }
 

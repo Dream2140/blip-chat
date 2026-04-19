@@ -117,11 +117,7 @@ export default function ConversationPage() {
   }
 
   if (loading) {
-    return (
-      <div style={{ flex: 1, display: "grid", placeItems: "center", color: "var(--ink-3)", fontSize: 13 }}>
-        loading…
-      </div>
-    );
+    return <MessageSkeletons />;
   }
 
   return (
@@ -138,5 +134,21 @@ export default function ConversationPage() {
         onClearReply={() => setReplyTo(null)}
       />
     </>
+  );
+}
+
+function MessageSkeletons() {
+  return (
+    <div className="messages" style={{ gap: 12, padding: "20px 24px" }}>
+      {[...Array(6)].map((_, i) => (
+        <div key={i} className={`msg-row ${i % 3 === 0 ? "me" : ""}`}>
+          {i % 3 !== 0 && <div className="skeleton" style={{ width: 32, height: 32 }} />}
+          <div className="msg-group">
+            <div className="skeleton" style={{ width: 120 + (i * 30) % 140, height: 40, borderRadius: "var(--radius-bubble)" }} />
+            <div className="skeleton" style={{ width: 60, height: 12 }} />
+          </div>
+        </div>
+      ))}
+    </div>
   );
 }

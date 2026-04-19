@@ -5,6 +5,7 @@ import type { Conversation, Message } from "@chat-app/shared";
 
 interface ConversationStore {
   conversations: Conversation[];
+  conversationsLoaded: boolean;
   activeConversationId: string | null;
   setConversations: (conversations: Conversation[]) => void;
   setActiveConversationId: (id: string | null) => void;
@@ -20,8 +21,9 @@ interface ConversationStore {
 
 export const useConversationStore = create<ConversationStore>((set) => ({
   conversations: [],
+  conversationsLoaded: false,
   activeConversationId: null,
-  setConversations: (conversations) => set({ conversations }),
+  setConversations: (conversations) => set({ conversations, conversationsLoaded: true }),
   setActiveConversationId: (id) => set({ activeConversationId: id }),
   updateConversation: (id, update) =>
     set((state) => ({

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useAuthStore } from "@/stores/auth-store";
 import { useConversationStore } from "@/stores/conversation-store";
@@ -11,6 +11,35 @@ import { Sidebar } from "@/components/chat/Sidebar";
 import { ToastContainer } from "@/components/chat/Toast";
 import { CallOverlay } from "@/components/chat/CallOverlay";
 import "@/app/chat.css";
+
+function ConnectionBanner() {
+  const connected = useLiveStore((s) => s.socketConnected);
+  const [show, setShow] = useState(false);
+  const [wasDisconnected, setWasDisconnected] = useState(false);
+
+  useEffect(() => {
+    if (!connected) {
+      setShow(true);
+      setWasDisconnected(true);
+    } else if (wasDisconnected) {
+      // Show "reconnected" briefly
+      const timer = setTimeout(() => {
+        setShow(false);
+        setWasDisconnected(false);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [connected, wasDisconnected]);
+
+  if (!show) return null;
+
+  return (
+    <div className={`connection-banner ${connected ? "reconnected" : "disconnected"}`}>
+      <span className="conn-dot" />
+      {connected ? "connected" : "connecting\u2026"}
+    </div>
+  );
+}
 
 export default function ChatLayout({
   children,
@@ -122,7 +151,10 @@ export default function ChatLayout({
   return (
     <div className={`app-shell ${hasActiveChat ? "has-active-chat" : ""}`}>
       <Sidebar />
-      <main className="chat-panel">{children}</main>
+      <main className="chat-panel">
+        <ConnectionBanner />
+        {children}
+      </main>
       <ToastContainer />
       <CallOverlay />
     </div>

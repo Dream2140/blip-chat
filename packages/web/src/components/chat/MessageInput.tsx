@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useAuthStore } from "@/stores/auth-store";
 import { useConversationStore } from "@/stores/conversation-store";
+import { useSocket } from "@/hooks/useSocket";
 import { apiFetch } from "@/lib/api-client";
 import { useToast } from "./Toast";
 import { Icons } from "./Icons";
@@ -25,6 +26,44 @@ export function MessageInput({
   const [showEmoji, setShowEmoji] = useState(false);
   const showToast = useToast((s) => s.show);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Typing indicator
+  const { emitTypingStart, emitTypingStop } = useSocket();
+  const typingRef = useRef(false);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  function handleTyping() {
+    if (!typingRef.current) {
+      typingRef.current = true;
+      emitTypingStart(conversationId);
+    }
+
+    // Reset auto-stop timer — stop after 5s of no typing
+    clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      typingRef.current = false;
+      emitTypingStop(conversationId);
+    }, 5000);
+  }
+
+  function stopTyping() {
+    if (typingRef.current) {
+      typingRef.current = false;
+      clearTimeout(typingTimeoutRef.current);
+      emitTypingStop(conversationId);
+    }
+  }
+
+  // Cleanup on unmount: clear timeout and send stop if typing
+  useEffect(() => {
+    return () => {
+      clearTimeout(typingTimeoutRef.current);
+      if (typingRef.current) {
+        emitTypingStop(conversationId);
+        typingRef.current = false;
+      }
+    };
+  }, [conversationId, emitTypingStop]);
 
   const autoResize = useCallback(() => {
     const el = textareaRef.current;
@@ -69,6 +108,7 @@ export function MessageInput({
       });
     }
 
+    stopTyping();
     setText("");
     onClearReply?.();
 
@@ -147,7 +187,15 @@ export function MessageInput({
         <textarea
           ref={textareaRef}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            const val = e.target.value;
+            setText(val);
+            if (val.trim()) {
+              handleTyping();
+            } else {
+              stopTyping();
+            }
+          }}
           onKeyDown={handleKeyDown}
           placeholder="message…"
           rows={1}
