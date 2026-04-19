@@ -6,6 +6,7 @@ interface UserAvatarProps {
   isOnline?: boolean;
   size?: "sm" | "md" | "lg";
   color?: string;
+  isGroup?: boolean;
 }
 
 const colors = [
@@ -21,8 +22,16 @@ function getColor(name: string): string {
   return colors[Math.abs(hash) % colors.length];
 }
 
-export function UserAvatar({ name, isOnline, size = "md", color }: UserAvatarProps) {
-  const initial = name[0]?.toUpperCase() || "?";
+function getGroupInitials(name: string): string {
+  const words = name.trim().split(/\s+/);
+  if (words.length >= 2) {
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+  return name.slice(0, 2).toUpperCase();
+}
+
+export function UserAvatar({ name, isOnline, size = "md", color, isGroup }: UserAvatarProps) {
+  const initial = isGroup ? getGroupInitials(name) : (name[0]?.toUpperCase() || "?");
   const sizeClass = size === "sm" ? " sm" : size === "lg" ? " lg" : "";
   const bgColor = color || getColor(name);
 

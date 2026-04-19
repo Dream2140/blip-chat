@@ -148,7 +148,7 @@ test.describe("Auth", () => {
     await page.locator('input[type="password"]').fill("testtest123");
     await page.locator('button[type="submit"]').click();
 
-    await expect(page.locator("text=already taken")).toBeVisible({
+    await expect(page.locator("text=Registration failed")).toBeVisible({
       timeout: 5000,
     });
   });
@@ -160,7 +160,7 @@ test.describe("Auth", () => {
     await page.locator('input[type="password"]').fill("testtest123");
     await page.locator('button[type="submit"]').click();
 
-    await expect(page.locator("text=already taken")).toBeVisible({
+    await expect(page.locator("text=Registration failed")).toBeVisible({
       timeout: 5000,
     });
   });
@@ -327,6 +327,79 @@ test.describe("1:1 Chat", () => {
     ).not.toBeVisible({ timeout: 3000 });
 
     await expect(page.locator("textarea")).toBeVisible({ timeout: 5000 });
+  });
+
+  test("edit a message via API and verify update", async ({ page }) => {
+    await openChatAtoB(page);
+    const msg = `edit-orig-${TS}`;
+
+    // Send message
+    await page.locator("textarea").fill(msg);
+    await page.keyboard.press("Enter");
+    await expect(page.locator(`text=${msg}`).first()).toBeVisible({ timeout: 5000 });
+
+    // Edit via API (get message ID from DOM or API)
+    const editResult = await page.evaluate(async (originalText) => {
+      const convId = window.location.pathname.split("/c/")[1];
+      const res = await fetch(`/api/conversations/${convId}/messages?limit=5`);
+      const data = await res.json();
+      const msg = data.items.find((m: any) => m.text === originalText);
+      if (!msg) return { error: "message not found" };
+
+      const editRes = await fetch(`/api/messages/${msg.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: originalText + " edited" }),
+      });
+      return editRes.json();
+    }, msg);
+
+    // Reload and verify edited text
+    await page.reload();
+    await expect(page.locator(`text=${msg} edited`).first()).toBeVisible({ timeout: 10000 });
+  });
+
+  test("delete a message via API and verify removal", async ({ page }) => {
+    await openChatAtoB(page);
+    const msg = `del-${TS}`;
+
+    await page.locator("textarea").fill(msg);
+    await page.keyboard.press("Enter");
+    await expect(page.locator(`text=${msg}`).first()).toBeVisible({ timeout: 5000 });
+
+    // Delete via API
+    await page.evaluate(async (text) => {
+      const convId = window.location.pathname.split("/c/")[1];
+      const res = await fetch(`/api/conversations/${convId}/messages?limit=5`);
+      const data = await res.json();
+      const msg = data.items.find((m: any) => m.text === text);
+      if (msg) {
+        await fetch(`/api/messages/${msg.id}`, { method: "DELETE" });
+      }
+    }, msg);
+
+    await page.reload();
+    await expect(page.locator("text=message deleted").first()).toBeVisible({ timeout: 10000 });
+  });
+
+  test("forwarded message appears in target conversation", async ({ page }) => {
+    // Send original message in chat A→B
+    await openChatAtoB(page);
+    const msg = `fwd-orig-${TS}`;
+    await page.locator("textarea").fill(msg);
+    await page.keyboard.press("Enter");
+    await expect(page.locator(`text=${msg}`).first()).toBeVisible({ timeout: 5000 });
+
+    // Create/open chat with C and send forwarded message
+    await page.locator("text=people").first().click();
+    await page.locator(`text=${USER_C.nickname}`).first().click();
+    await page.waitForURL(/\/c\//, { timeout: 15000 });
+    await expect(page.locator("textarea")).toBeVisible({ timeout: 5000 });
+
+    const fwdText = `↪ Forwarded:\n${msg}`;
+    await page.locator("textarea").fill(fwdText);
+    await page.keyboard.press("Enter");
+    await expect(page.locator(`text=${msg}`).first()).toBeVisible({ timeout: 5000 });
   });
 });
 
@@ -497,6 +570,28 @@ test.describe("API Validation", () => {
     );
     expect(msgRes.status).toBe(400);
   });
+
+  test("rate limiting returns 429 on excessive requests", async ({ baseURL }) => {
+    // Register a fresh user for this test
+    const user = { email: `rate-${TS}@test.com`, password: "testtest123", nickname: `rate${TS}` };
+    const regRes = await fetch(`${baseURL}/api/auth/register`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(user),
+    });
+
+    // Attempt 12 rapid logins from same "IP" (exceeds 10/min limit)
+    let got429 = false;
+    for (let i = 0; i < 12; i++) {
+      const res = await fetch(`${baseURL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: user.email, password: user.password }),
+      });
+      if (res.status === 429) { got429 = true; break; }
+    }
+    expect(got429).toBe(true);
+  });
 });
 
 // ═══════════════════════════════════════════
@@ -553,5 +648,13 @@ test.describe("Bug Fixes", () => {
       return meta?.getAttribute("content") || null;
     });
     expect(content).toContain("width=device-width");
+  });
+
+  test("security headers are present", async ({ page }) => {
+    const response = await page.goto("/login");
+    const headers = response?.headers() || {};
+    expect(headers["x-frame-options"]).toBe("DENY");
+    expect(headers["x-content-type-options"]).toBe("nosniff");
+    expect(headers["content-security-policy"]).toBeTruthy();
   });
 });

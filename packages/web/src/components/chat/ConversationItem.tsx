@@ -32,7 +32,7 @@ export function ConversationItem({ conversation }: ConversationItemProps) {
       href={`/c/${conversation.id}`}
       className={`convo ${isActive ? "active" : ""}`}
     >
-      <UserAvatar name={displayName} />
+      <UserAvatar name={displayName} isGroup={conversation.type === "GROUP"} />
 
       <div className="convo-body">
         <div className="convo-row">

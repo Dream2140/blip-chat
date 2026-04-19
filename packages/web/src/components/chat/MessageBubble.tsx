@@ -31,9 +31,15 @@ export function MessageBubble({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [forwardMessage, setForwardMessage] = useState<Message | null>(null);
+  const [showReaders, setShowReaders] = useState(false);
+  const [readers, setReaders] = useState<
+    { id: string; nickname: string; avatarUrl: string | null }[]
+  >([]);
+  const [loadingReaders, setLoadingReaders] = useState(false);
 
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const readersRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef(0);
   const touchDeltaX = useRef(0);
   const bubbleRef = useRef<HTMLDivElement>(null);
@@ -73,6 +79,45 @@ export function MessageBubble({
       document.removeEventListener("scroll", closeContextMenu, true);
     };
   }, [showContextMenu, closeContextMenu]);
+
+  // Close readers popup on outside click
+  useEffect(() => {
+    if (!showReaders) return;
+
+    function handleClick(e: MouseEvent) {
+      if (
+        readersRef.current &&
+        !readersRef.current.contains(e.target as Node)
+      ) {
+        setShowReaders(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClick);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+    };
+  }, [showReaders]);
+
+  async function handleReadTicksClick() {
+    if (showReaders) {
+      setShowReaders(false);
+      return;
+    }
+    setLoadingReaders(true);
+    setShowReaders(true);
+    try {
+      const res = await apiFetch(`/api/messages/${message.id}/readers`);
+      if (res.ok) {
+        const data = await res.json();
+        setReaders(data.readers);
+      }
+    } catch {
+      // silently fail
+    } finally {
+      setLoadingReaders(false);
+    }
+  }
 
   // Auto-focus and auto-resize edit textarea
   useEffect(() => {
@@ -394,12 +439,42 @@ export function MessageBubble({
             </div>
           )}
 
-          <div className="meta">
+          <div className="meta" style={{ position: "relative" }}>
             <span>{time}</span>
             {message.editedAt && (
               <span className="edited-label">(edited)</span>
             )}
-            {isOwn && <span className="read-ticks">{readText}</span>}
+            {isOwn && message.status === "read" ? (
+              <span
+                className="read-ticks"
+                style={{ cursor: "pointer" }}
+                onClick={handleReadTicksClick}
+              >
+                {readText}
+              </span>
+            ) : isOwn ? (
+              <span className="read-ticks">{readText}</span>
+            ) : null}
+            {showReaders && (
+              <div className="readers-popup" ref={readersRef}>
+                {loadingReaders ? (
+                  <div className="reader-item" style={{ color: "var(--ink-3)" }}>
+                    loading...
+                  </div>
+                ) : readers.length === 0 ? (
+                  <div className="reader-item" style={{ color: "var(--ink-3)" }}>
+                    no readers yet
+                  </div>
+                ) : (
+                  readers.map((r) => (
+                    <div key={r.id} className="reader-item">
+                      <UserAvatar name={r.nickname} size="sm" />
+                      <span>{r.nickname}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

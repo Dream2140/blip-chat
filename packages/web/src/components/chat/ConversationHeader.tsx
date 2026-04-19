@@ -126,7 +126,7 @@ export function ConversationHeader({ conversationId }: ConversationHeaderProps) 
         <Link href="/" className="icon-btn mobile-back" style={{ textDecoration: "none" }}>
           ←
         </Link>
-        <UserAvatar name={displayName} />
+        <UserAvatar name={displayName} isGroup={conversation.type === "GROUP"} />
         <div>
           <div className="chat-title">{displayName}</div>
           <div className="chat-sub">

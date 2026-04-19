@@ -11,6 +11,7 @@ interface ConversationStore {
   setActiveConversationId: (id: string | null) => void;
   updateConversation: (id: string, update: Partial<Conversation>) => void;
   addConversation: (conversation: Conversation) => void;
+  removeConversation: (id: string) => void;
 
   incrementUnread: (conversationId: string) => void;
   clearUnread: (conversationId: string) => void;
@@ -39,6 +40,12 @@ export const useConversationStore = create<ConversationStore>((set) => ({
       if (state.conversations.find((c) => c.id === conversation.id)) return state;
       return { conversations: [conversation, ...state.conversations] };
     }),
+  removeConversation: (id) =>
+    set((state) => ({
+      conversations: state.conversations.filter((c) => c.id !== id),
+      activeConversationId:
+        state.activeConversationId === id ? null : state.activeConversationId,
+    })),
   incrementUnread: (conversationId) =>
     set((state) => ({
       conversations: state.conversations.map((c) =>
