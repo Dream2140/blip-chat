@@ -71,18 +71,29 @@ export function ConversationHeader({ conversationId }: ConversationHeaderProps) 
       setShowPinned(false);
       return;
     }
-    // Fetch fresh pinned messages
+
+    // Use cache if fresh enough
+    const cached = pinnedCache.get(conversationId);
+    if (cached && Date.now() - cached.ts < CACHE_TTL && pinnedMessages.length > 0) {
+      setShowPinned(true);
+      return;
+    }
+
+    // Fetch fresh
     try {
       const res = await apiFetch(`/api/conversations/${conversationId}/pinned`);
       if (res.ok) {
         const data = await res.json();
-        setPinnedMessages(data.items || []);
+        const items = data.items || [];
+        setPinnedMessages(items);
+        setPinnedCount(items.length);
+        pinnedCache.set(conversationId, { count: items.length, ts: Date.now() });
       }
     } catch (err) {
       console.error("[ConversationHeader] refresh pinned failed:", err);
     }
     setShowPinned(true);
-  }, [conversationId, showPinned]);
+  }, [conversationId, showPinned, pinnedMessages.length]);
 
   const { getSocket } = useSocket();
 

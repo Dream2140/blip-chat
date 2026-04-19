@@ -195,7 +195,8 @@ export function useSocket() {
             (sum, c) => sum + (c.unreadCount ?? 0),
             0
           );
-          document.title = totalUnread > 0 ? `(${totalUnread}) blip` : "blip";
+          const newTitle = totalUnread > 0 ? `(${totalUnread}) blip` : "blip";
+          if (document.title !== newTitle) document.title = newTitle;
         }
       });
 
@@ -322,6 +323,8 @@ export function useSocket() {
   const disconnect = useCallback(() => {
     globalSocket?.disconnect();
     globalSocket = null;
+    lastEventTimestamp = new Date().toISOString();
+    wasConnectedBefore = false;
     useLiveStore.getState().setSocketConnected(false);
   }, []);
 

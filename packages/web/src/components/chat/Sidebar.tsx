@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/auth-store";
 import { useConversationStore } from "@/stores/conversation-store";
@@ -118,19 +118,21 @@ export function Sidebar() {
     }
   }
 
-  const filteredConversations = conversations.filter((c) => {
-    if (!query) return true;
+  const filteredConversations = useMemo(() => {
+    if (!query) return conversations;
     const q = query.toLowerCase();
-    return (
+    return conversations.filter((c) =>
       c.name?.toLowerCase().includes(q) ||
       c.participants.some((p) => p.user.nickname.toLowerCase().includes(q))
     );
-  });
+  }, [conversations, query]);
 
-  const filteredUsers = allUsers.filter((u) => {
-    if (!query) return true;
-    return u.nickname.toLowerCase().includes(query.toLowerCase());
-  });
+  const filteredUsers = useMemo(() => {
+    if (!query) return allUsers;
+    return allUsers.filter((u) =>
+      u.nickname.toLowerCase().includes(query.toLowerCase())
+    );
+  }, [allUsers, query]);
 
   return (
     <aside className="sidebar">

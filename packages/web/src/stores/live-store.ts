@@ -2,6 +2,8 @@
 
 import { create } from "zustand";
 
+const typingTimeouts = new Map<string, ReturnType<typeof setTimeout>>();
+
 interface LiveStore {
   // Use Record instead of Set — Sets cause re-render loops in React 19 + Zustand v5
   onlineUserIds: Record<string, boolean>;
@@ -45,7 +47,19 @@ export const useLiveStore = create<LiveStore>((set, get) => ({
   isUserOnline: (userId) => !!get().onlineUserIds[userId],
 
   typingUsers: {},
-  setUserTyping: (conversationId, userId) =>
+  setUserTyping: (conversationId, userId) => {
+    const key = `${conversationId}:${userId}`;
+
+    // Clear existing timeout
+    const existing = typingTimeouts.get(key);
+    if (existing) clearTimeout(existing);
+
+    // Auto-clear after 6 seconds
+    typingTimeouts.set(key, setTimeout(() => {
+      useLiveStore.getState().clearUserTyping(conversationId, userId);
+      typingTimeouts.delete(key);
+    }, 6000));
+
     set((state) => {
       const current = state.typingUsers[conversationId] || [];
       if (current.includes(userId)) return state;
@@ -55,7 +69,8 @@ export const useLiveStore = create<LiveStore>((set, get) => ({
           [conversationId]: [...current, userId],
         },
       };
-    }),
+    });
+  },
   clearUserTyping: (conversationId, userId) =>
     set((state) => {
       const current = state.typingUsers[conversationId] || [];

@@ -35,47 +35,30 @@ export async function GET(
       );
     }
 
-    // Find participants whose lastReadMessageId's message was created at or after this message
-    // We need to join through the message to compare createdAt timestamps
-    const readers = await prisma.conversationParticipant.findMany({
-      where: {
-        conversationId: message.conversationId,
-        userId: { not: message.senderId },
-        lastReadMessageId: { not: null },
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            nickname: true,
-            avatarUrl: true,
-          },
-        },
-      },
-    });
+    // Single query: join participants with their last-read message to get createdAt
+    const readers = await prisma.$queryRaw<
+      Array<{ userId: string; nickname: string; avatarUrl: string | null; lastReadCreatedAt: Date | null }>
+    >`
+      SELECT cp."userId", u."nickname", u."avatarUrl", m."createdAt" AS "lastReadCreatedAt"
+      FROM "ConversationParticipant" cp
+      JOIN "User" u ON u."id" = cp."userId"
+      LEFT JOIN "Message" m ON m."id" = cp."lastReadMessageId"
+      WHERE cp."conversationId" = ${message.conversationId}
+        AND cp."userId" != ${auth.userId}
+        AND cp."lastReadMessageId" IS NOT NULL
+    `;
 
-    // Filter: only include participants whose lastReadMessage was created at or after this message
-    const readersWithMessages = await Promise.all(
-      readers.map(async (r) => {
-        if (!r.lastReadMessageId) return null;
-        const lastReadMsg = await prisma.message.findUnique({
-          where: { id: r.lastReadMessageId },
-          select: { createdAt: true },
-        });
-        if (!lastReadMsg) return null;
-        if (lastReadMsg.createdAt >= message.createdAt) {
-          return {
-            id: r.user.id,
-            nickname: r.user.nickname,
-            avatarUrl: r.user.avatarUrl,
-          };
-        }
-        return null;
-      })
+    // Filter: only include readers whose lastReadMessage is >= target message
+    const filteredReaders = readers.filter(
+      (r) => r.lastReadCreatedAt && r.lastReadCreatedAt >= message.createdAt
     );
 
-    const filteredReaders = readersWithMessages.filter(Boolean);
-
-    return NextResponse.json({ readers: filteredReaders });
+    return NextResponse.json({
+      readers: filteredReaders.map((r) => ({
+        userId: r.userId,
+        nickname: r.nickname,
+        avatarUrl: r.avatarUrl,
+      })),
+    });
   });
 }

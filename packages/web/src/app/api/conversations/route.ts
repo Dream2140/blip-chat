@@ -58,30 +58,28 @@ export async function GET(request: NextRequest) {
         for (const c of counts) unreadMap.set(c.conversationId, c._count);
       }
 
-      // Conversations with read cursor — count messages after the cursor message
+      // Conversations with read cursor — batch count messages after each cursor
       const withCursorIds = convoIds.filter((id) => cursorMap.get(id));
       if (withCursorIds.length > 0) {
-        // Get createdAt of each cursor message
         const cursorMessageIds = withCursorIds.map((id) => cursorMap.get(id)!);
-        const cursorMessages = await prisma.message.findMany({
-          where: { id: { in: cursorMessageIds } },
-          select: { id: true, conversationId: true, createdAt: true },
-        });
-        const cursorDateMap = new Map(cursorMessages.map((m) => [m.conversationId, m.createdAt]));
 
-        // Count messages after each cursor
-        for (const convId of withCursorIds) {
-          const cursorDate = cursorDateMap.get(convId);
-          if (!cursorDate) continue;
-          const count = await prisma.message.count({
-            where: {
-              conversationId: convId,
-              senderId: { not: auth.userId },
-              deletedAt: null,
-              createdAt: { gt: cursorDate },
-            },
-          });
-          if (count > 0) unreadMap.set(convId, count);
+        // Single raw query: count messages after each cursor
+        const unreadResults = await prisma.$queryRaw<
+          Array<{ conversationId: string; count: bigint }>
+        >`
+          SELECT m."conversationId", COUNT(m."id") as count
+          FROM "Message" m
+          JOIN "Message" cursor ON cursor."id" = ANY(${cursorMessageIds}::text[])
+            AND cursor."conversationId" = m."conversationId"
+          WHERE m."conversationId" = ANY(${withCursorIds}::text[])
+            AND m."senderId" != ${auth.userId}
+            AND m."deletedAt" IS NULL
+            AND m."createdAt" > cursor."createdAt"
+          GROUP BY m."conversationId"
+        `;
+
+        for (const r of unreadResults) {
+          unreadMap.set(r.conversationId, Number(r.count));
         }
       }
     }
