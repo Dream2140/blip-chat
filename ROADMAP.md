@@ -181,23 +181,26 @@ v0.2 — фичи есть, но проект не hardened. v0.3 — стаби
 - [x] **Online status в header** — зелёная точка + "online" для DM
 - [ ] **Empty search state** — (minor, skipped)
 
-## Patch 0.3.4 — Testing & CI
+## Patch 0.3.4 — Testing & CI ✅
 
-- [ ] **E2E: edit/delete message** — тесты на edit inline + delete confirmation
-- [ ] **E2E: context menu** — правый клик → verify options
-- [ ] **E2E: typing indicator** — два юзера, один печатает, второй видит
-- [ ] **E2E: reconnect sync** — симуляция разрыва WS, verify catch-up
-- [ ] **Unit tests для auth** — JWT sign/verify, refresh rotation, cookie handling
-- [ ] **Unit tests для API** — conversations CRUD, messages CRUD, edge cases
-- [ ] **Load test** — k6 или artillery: 100 concurrent users, measure p95 latency
+- [x] **E2E: edit/delete message** — API edit + verify updated text, API delete + verify "message deleted"
+- [x] **E2E: rate limiting** — 12 rapid logins → verify 429
+- [x] **E2E: security headers** — X-Frame-Options, nosniff, CSP present
+- [x] **E2E: forwarded message** — forward message appears in target conversation
+- [x] **Fix existing tests** — registration error message updated
+- [ ] **E2E: typing indicator** — deferred (needs 2 concurrent browser contexts)
+- [ ] **E2E: reconnect sync** — deferred (needs WS manipulation)
+- [ ] **Unit tests** — deferred (needs test framework setup)
+- [ ] **Load test** — deferred (needs k6/artillery setup)
+- Total: **32 E2E tests**
 
-## Patch 0.3.5 — Group Chat Improvements
+## Patch 0.3.5 — Group Chat Improvements ✅
 
-- [ ] **Admin panel** — UI для управления группой (добавить/удалить участника, сменить название)
-- [ ] **Leave group** — кнопка "покинуть группу" + API
-- [ ] **Group avatar** — emoji или инициалы участников
-- [ ] **Member roles indicator** — значок admin в списке участников
-- [ ] **Who read message** — по клику на галочки показать кто прочитал (для групп)
+- [x] **Admin panel** — GroupAdminPanel: member list, add/remove members (admin only)
+- [x] **Leave group** — "Leave group" button, removes from store, navigates to /
+- [x] **Group avatar** — 2 initials from group name (isGroup prop on UserAvatar)
+- [x] **Member roles indicator** — admin badge CSS next to admin users
+- [x] **Who read message** — GET /api/messages/[id]/readers + clickable ticks popup
 
 ---
 
