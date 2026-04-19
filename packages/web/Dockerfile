@@ -37,15 +37,14 @@ COPY --from=base /app/packages/web/.next/standalone/ ./
 COPY --from=base /app/packages/web/.next/static ./packages/web/.next/static
 COPY --from=base /app/packages/web/public ./packages/web/public
 
-# Copy prisma schema + migrations for runtime migrate deploy
-COPY --from=base /app/packages/web/prisma ./packages/web/prisma
-COPY --from=base /app/packages/web/node_modules/.prisma ./packages/web/node_modules/.prisma
-COPY --from=base /app/packages/web/node_modules/@prisma ./packages/web/node_modules/@prisma
-COPY --from=base /app/node_modules/prisma ./node_modules/prisma
-COPY --from=base /app/node_modules/@prisma ./node_modules/@prisma
+# Copy prisma schema + migrations + CLI for runtime migrate deploy
+COPY --from=base /app/packages/web/prisma ./prisma
+COPY --from=base /app/packages/web/node_modules/.prisma ./node_modules/.prisma
+COPY --from=base /app/packages/web/node_modules/@prisma ./node_modules/@prisma
+COPY --from=base /app/packages/web/node_modules/prisma ./node_modules/prisma
 
 USER nextjs
 EXPOSE 3000
 
 # Run migrations then start server
-CMD ["sh", "-c", "node node_modules/prisma/build/index.js migrate deploy --schema=packages/web/prisma/schema.prisma && node packages/web/server.js"]
+CMD ["sh", "-c", "node node_modules/prisma/build/index.js migrate deploy --schema=prisma/schema.prisma && node packages/web/server.js"]
