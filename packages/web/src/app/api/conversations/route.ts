@@ -8,7 +8,13 @@ import { rateLimit } from "@/lib/rate-limit";
 
 // GET /api/conversations — list user's conversations
 export async function GET(request: NextRequest) {
-  return withAuth(request, async (_req, auth) => {
+  return withAuth(request, async (req, auth) => {
+    const cursor = req.nextUrl.searchParams.get("cursor");
+    const limit = Math.min(
+      parseInt(req.nextUrl.searchParams.get("limit") || "20", 10) || 20,
+      50
+    );
+
     const conversations = await prisma.conversation.findMany({
       where: {
         participants: { some: { userId: auth.userId } },
@@ -28,12 +34,17 @@ export async function GET(request: NextRequest) {
         },
       },
       orderBy: { updatedAt: "desc" },
+      ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),
+      take: limit + 1,
     });
+
+    const hasMore = conversations.length > limit;
+    const paginatedConvos = hasMore ? conversations.slice(0, limit) : conversations;
 
     // Unread counts via cursor: count messages after lastReadMessageId
     // Get current user's participant records with read cursors
     const myParticipants = await prisma.conversationParticipant.findMany({
-      where: { userId: auth.userId, conversationId: { in: conversations.map((c) => c.id) } },
+      where: { userId: auth.userId, conversationId: { in: paginatedConvos.map((c) => c.id) } },
       select: { conversationId: true, lastReadMessageId: true },
     });
     const cursorMap = new Map(myParticipants.map((p) => [p.conversationId, p.lastReadMessageId]));
@@ -41,7 +52,7 @@ export async function GET(request: NextRequest) {
     // For conversations with a read cursor, count messages after that cursor's createdAt
     // For conversations without a cursor, count all messages from others
     const unreadMap = new Map<string, number>();
-    const convoIds = conversations.map((c) => c.id);
+    const convoIds = paginatedConvos.map((c) => c.id);
 
     if (convoIds.length > 0) {
       // Conversations with no read cursor — count all messages from others
@@ -85,7 +96,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const items = conversations.map((c) => {
+    const items = paginatedConvos.map((c) => {
         const unreadCount = unreadMap.get(c.id) || 0;
 
         return {
@@ -124,7 +135,11 @@ export async function GET(request: NextRequest) {
         };
       });
 
-    return NextResponse.json({ items });
+    return NextResponse.json({
+      items,
+      hasMore,
+      nextCursor: hasMore ? paginatedConvos[paginatedConvos.length - 1].id : null,
+    });
   });
 }
 

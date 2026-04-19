@@ -58,7 +58,11 @@ export default function ChatLayout({
       if (!res.ok) return;
       const data = await res.json();
       if (data?.items) {
-        useConversationStore.getState().setConversations(data.items);
+        useConversationStore.getState().setConversations(
+          data.items,
+          data.hasMore ?? false,
+          data.nextCursor ?? null
+        );
 
         const totalUnread = (data.items as { unreadCount?: number }[]).reduce(
           (sum, c) => sum + (c.unreadCount ?? 0),

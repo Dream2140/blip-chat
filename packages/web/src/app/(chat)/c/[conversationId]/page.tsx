@@ -31,7 +31,7 @@ export default function ConversationPage() {
   const fetchMessages = useCallback(async () => {
     try {
       const res = await apiFetch(
-        `/api/conversations/${conversationId}/messages?limit=50`
+        `/api/conversations/${conversationId}/messages?limit=20`
       );
       if (!res.ok) return;
       const data = await res.json();

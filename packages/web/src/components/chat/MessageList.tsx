@@ -78,7 +78,7 @@ export function MessageList({ conversationId, messages, onReply, highlightMessag
 
     try {
       const res = await apiFetch(
-        `/api/conversations/${conversationId}/messages?limit=30&cursor=${encodeURIComponent(oldestMsg.createdAt)}`
+        `/api/conversations/${conversationId}/messages?limit=20&cursor=${encodeURIComponent(oldestMsg.createdAt)}`
       );
       if (!res.ok) return;
       const data = await res.json();

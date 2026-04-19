@@ -6,8 +6,11 @@ import type { Conversation, Message } from "@chat-app/shared";
 interface ConversationStore {
   conversations: Conversation[];
   conversationsLoaded: boolean;
+  hasMoreConversations: boolean;
+  conversationsCursor: string | null;
   activeConversationId: string | null;
-  setConversations: (conversations: Conversation[]) => void;
+  setConversations: (conversations: Conversation[], hasMore?: boolean, cursor?: string | null) => void;
+  appendConversations: (conversations: Conversation[], hasMore: boolean, cursor: string | null) => void;
   setActiveConversationId: (id: string | null) => void;
   updateConversation: (id: string, update: Partial<Conversation>) => void;
   addConversation: (conversation: Conversation) => void;
@@ -26,8 +29,21 @@ interface ConversationStore {
 export const useConversationStore = create<ConversationStore>((set) => ({
   conversations: [],
   conversationsLoaded: false,
+  hasMoreConversations: false,
+  conversationsCursor: null,
   activeConversationId: null,
-  setConversations: (conversations) => set({ conversations, conversationsLoaded: true }),
+  setConversations: (conversations, hasMore = false, cursor = null) =>
+    set({ conversations, conversationsLoaded: true, hasMoreConversations: hasMore, conversationsCursor: cursor }),
+  appendConversations: (conversations, hasMore, cursor) =>
+    set((state) => {
+      const existingIds = new Set(state.conversations.map((c) => c.id));
+      const newConvos = conversations.filter((c) => !existingIds.has(c.id));
+      return {
+        conversations: [...state.conversations, ...newConvos],
+        hasMoreConversations: hasMore,
+        conversationsCursor: cursor,
+      };
+    }),
   setActiveConversationId: (id) => set({ activeConversationId: id }),
   updateConversation: (id, update) =>
     set((state) => ({

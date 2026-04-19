@@ -31,12 +31,18 @@ export function Sidebar() {
   const router = useRouter();
   const conversations = useConversationStore((s) => s.conversations);
   const conversationsLoaded = useConversationStore((s) => s.conversationsLoaded);
+  const hasMoreConversations = useConversationStore((s) => s.hasMoreConversations);
+  const conversationsCursor = useConversationStore((s) => s.conversationsCursor);
   const currentUser = useAuthStore((s) => s.currentUser);
   const addConversation = useConversationStore((s) => s.addConversation);
+  const appendConversations = useConversationStore((s) => s.appendConversations);
   const [showNewGroup, setShowNewGroup] = useState(false);
   const [tab, setTab] = useState<Tab>("chats");
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
+  const [loadingMoreConvos, setLoadingMoreConvos] = useState(false);
+  const [hasMoreUsers, setHasMoreUsers] = useState(false);
+  const [usersCursor, setUsersCursor] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -94,10 +100,45 @@ export function Sidebar() {
     apiFetch("/api/users/all")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data?.users) setAllUsers(data.users);
+        if (data?.users) {
+          setAllUsers(data.users);
+          setHasMoreUsers(!!data.hasMore);
+          setUsersCursor(data.nextCursor ?? null);
+        }
       })
       .finally(() => setLoadingUsers(false));
   }, [tab]);
+
+  async function loadMoreUsers() {
+    if (!usersCursor) return;
+    const res = await apiFetch(`/api/users/all?cursor=${encodeURIComponent(usersCursor)}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data?.users) {
+      setAllUsers((prev) => [...prev, ...data.users]);
+      setHasMoreUsers(!!data.hasMore);
+      setUsersCursor(data.nextCursor ?? null);
+    }
+  }
+
+  async function loadMoreConversations() {
+    if (!conversationsCursor || loadingMoreConvos) return;
+    setLoadingMoreConvos(true);
+    try {
+      const res = await apiFetch(
+        `/api/conversations?cursor=${encodeURIComponent(conversationsCursor)}`
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data?.items) {
+        appendConversations(data.items, data.hasMore ?? false, data.nextCursor ?? null);
+      }
+    } catch (err) {
+      console.error("[Sidebar] load more conversations failed:", err);
+    } finally {
+      setLoadingMoreConvos(false);
+    }
+  }
 
   async function startDirectChat(userId: string) {
     const res = await apiFetch("/api/conversations", {
@@ -382,12 +423,29 @@ export function Sidebar() {
                 )}
               </div>
             ) : (
-              filteredConversations.map((conversation) => (
-                <ConversationItem
-                  key={conversation.id}
-                  conversation={conversation}
-                />
-              ))
+              <>
+                {filteredConversations.map((conversation) => (
+                  <ConversationItem
+                    key={conversation.id}
+                    conversation={conversation}
+                  />
+                ))}
+                {hasMoreConversations && !query && (
+                  <button
+                    onClick={loadMoreConversations}
+                    disabled={loadingMoreConvos}
+                    style={{
+                      width: "100%",
+                      padding: "12px",
+                      fontSize: 13,
+                      color: "var(--primary)",
+                      fontWeight: 600,
+                    }}
+                  >
+                    {loadingMoreConvos ? "loading..." : "load more"}
+                  </button>
+                )}
+              </>
             )}
           </div>
         </>
@@ -422,23 +480,39 @@ export function Sidebar() {
                   : "no results"}
               </div>
             ) : (
-              filteredUsers.map((user) => (
-                <button
-                  key={user.id}
-                  className="convo"
-                  onClick={() => startDirectChat(user.id)}
-                  style={{ width: "100%", textAlign: "left" }}
-                >
-                  <UserAvatar name={user.nickname} />
-                  <div className="convo-body">
-                    <div className="convo-name">{user.nickname}</div>
-                    <div className="convo-last">
-                      @{user.nickname}
-                      {user.bio ? ` · ${user.bio}` : ""}
+              <>
+                {filteredUsers.map((user) => (
+                  <button
+                    key={user.id}
+                    className="convo"
+                    onClick={() => startDirectChat(user.id)}
+                    style={{ width: "100%", textAlign: "left" }}
+                  >
+                    <UserAvatar name={user.nickname} />
+                    <div className="convo-body">
+                      <div className="convo-name">{user.nickname}</div>
+                      <div className="convo-last">
+                        @{user.nickname}
+                        {user.bio ? ` · ${user.bio}` : ""}
+                      </div>
                     </div>
-                  </div>
-                </button>
-              ))
+                  </button>
+                ))}
+                {hasMoreUsers && (
+                  <button
+                    onClick={loadMoreUsers}
+                    style={{
+                      width: "100%",
+                      padding: "12px",
+                      fontSize: 13,
+                      color: "var(--primary)",
+                      fontWeight: 600,
+                    }}
+                  >
+                    load more
+                  </button>
+                )}
+              </>
             )}
           </div>
         </>
