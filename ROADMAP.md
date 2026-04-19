@@ -163,15 +163,13 @@ v0.2 — фичи есть, но проект не hardened. v0.3 — стаби
 - [x] **WebRTC SDP validation** — проверка type/sdp перед RTCSessionDescription
 - [x] **Unhandled promise rejections** — все 12 socket handlers обёрнуты в try/catch
 
-## Patch 0.3.2 — Feature Completions
+## Patch 0.3.2 — Feature Completions ✅
 
-Доделать незакрытые фичи из v0.2:
-
-- [ ] **Jump to message from search** — по клику на search result скролить к конкретному сообщению
-- [ ] **Browser Push Notifications** — Web Push API (service worker + VAPID keys)
-- [ ] **Message forwarding** — переслать сообщение в другой чат
-- [ ] **Unread count на sidebar** — live-обновление при новом сообщении (не ждать refetch)
-- [ ] **Delivered status** — "доставлено" когда WS push дошёл до клиента (сейчас только sent/read)
+- [x] **Jump to message from search** — ?msg= URL param, ?around= API, scroll + highlight animation
+- [ ] **Browser Push Notifications** — Web Push API (deferred — needs service worker + VAPID)
+- [x] **Message forwarding** — context menu → ForwardModal → send to any conversation
+- [x] **Unread count на sidebar** — incrementUnread/clearUnread, instant badge update + title
+- [x] **Delivered status** — MESSAGE_DELIVERED ACK flow, double-tick display
 
 ## Patch 0.3.3 — UX Polish
 
