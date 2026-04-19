@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
                 id: true,
                 nickname: true,
                 avatarUrl: true,
+                lastSeenAt: true,
               },
             },
           },
@@ -98,7 +99,10 @@ export async function GET(request: NextRequest) {
           participants: c.participants.map((p) => ({
             id: p.id,
             userId: p.userId,
-            user: p.user,
+            user: {
+              ...p.user,
+              lastSeenAt: p.user.lastSeenAt ? (p.user.lastSeenAt as Date).toISOString() : null,
+            },
             role: p.role,
             joinedAt: p.joinedAt.toISOString(),
           })),

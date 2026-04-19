@@ -238,7 +238,7 @@ export function Sidebar() {
         <Icons.Search />
         <input
           className="search-input"
-          placeholder="search messages, people…"
+          placeholder="search messages, people… (Ctrl+K)"
           value={query}
           onChange={(e) => handleQueryChange(e.target.value)}
         />

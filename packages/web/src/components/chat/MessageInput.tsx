@@ -159,6 +159,10 @@ export function MessageInput({
       e.preventDefault();
       handleSend();
     }
+    if (e.key === "Escape") {
+      setShowEmoji(false);
+      onClearReply?.();
+    }
   }
 
   return (

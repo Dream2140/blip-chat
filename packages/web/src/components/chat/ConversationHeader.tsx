@@ -14,6 +14,18 @@ import type { Message } from "@chat-app/shared";
 const pinnedCache = new Map<string, { count: number; ts: number }>();
 const CACHE_TTL = 60000;
 
+function formatLastSeen(iso: string): string {
+  const date = new Date(iso);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return "just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  return date.toLocaleDateString();
+}
+
 interface ConversationHeaderProps {
   conversationId: string;
 }
@@ -100,6 +112,9 @@ export function ConversationHeader({ conversationId }: ConversationHeaderProps) 
       ? conversation.participants.find((p) => p.userId !== currentUser?.id)
       : null;
 
+  const otherUserId = otherParticipant?.userId;
+  const isOnline = useLiveStore((s) => otherUserId ? s.onlineUserIds[otherUserId] : false);
+
   const displayName =
     conversation.type === "GROUP"
       ? conversation.name || "Group Chat"
@@ -117,7 +132,11 @@ export function ConversationHeader({ conversationId }: ConversationHeaderProps) 
           <div className="chat-sub">
             {conversation.type === "GROUP"
               ? `${conversation.participants.length} members`
-              : "tap for info"}
+              : isOnline
+                ? <><span className="dot" style={{ background: "var(--mint)" }} /> online</>
+                : otherParticipant?.user.lastSeenAt
+                  ? `last seen ${formatLastSeen(otherParticipant.user.lastSeenAt)}`
+                  : "tap for info"}
           </div>
         </div>
         <div className="header-spacer" />

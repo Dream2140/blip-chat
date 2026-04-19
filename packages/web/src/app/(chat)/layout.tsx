@@ -122,6 +122,21 @@ export default function ChatLayout({
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Global keyboard shortcuts
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      // Ctrl/Cmd + K → focus search
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        const searchInput = document.querySelector(".search-input") as HTMLInputElement;
+        if (searchInput) searchInput.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   // Fallback poll ONLY when WebSocket is disconnected AND tab is visible
   useEffect(() => {
     if (isConnected) return;

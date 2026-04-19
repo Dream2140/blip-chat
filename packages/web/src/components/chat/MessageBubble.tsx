@@ -34,6 +34,9 @@ export function MessageBubble({
 
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const touchStartX = useRef(0);
+  const touchDeltaX = useRef(0);
+  const bubbleRef = useRef<HTMLDivElement>(null);
 
   const toast = useToast();
 
@@ -54,11 +57,19 @@ export function MessageBubble({
       }
     }
 
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        closeContextMenu();
+      }
+    }
+
     document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKeyDown);
     document.addEventListener("scroll", closeContextMenu, true);
 
     return () => {
       document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("scroll", closeContextMenu, true);
     };
   }, [showContextMenu, closeContextMenu]);
@@ -72,6 +83,33 @@ export function MessageBubble({
       el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
     }
   }, [isEditing]);
+
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX;
+    touchDeltaX.current = 0;
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    const delta = e.touches[0].clientX - touchStartX.current;
+    if (delta > 0 && delta < 80) {
+      touchDeltaX.current = delta;
+      if (bubbleRef.current) {
+        bubbleRef.current.style.transform = `translateX(${delta * 0.4}px)`;
+        bubbleRef.current.style.opacity = String(1 - delta / 200);
+      }
+    }
+  }
+
+  function handleTouchEnd() {
+    if (touchDeltaX.current > 60 && onReply) {
+      onReply(message);
+    }
+    if (bubbleRef.current) {
+      bubbleRef.current.style.transform = "";
+      bubbleRef.current.style.opacity = "";
+    }
+    touchDeltaX.current = 0;
+  }
 
   if (message.deletedAt) {
     return (
@@ -238,7 +276,13 @@ export function MessageBubble({
           <UserAvatar name={message.sender?.nickname || "?"} size="sm" />
         )}
         <div className="msg-group">
-          <div className="bubble-wrap">
+          <div
+            className="bubble-wrap"
+            ref={bubbleRef}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
             {message.replyTo && (
               <div className="reply-quote">
                 <div className="rq-name">
@@ -250,7 +294,7 @@ export function MessageBubble({
                 </div>
               </div>
             )}
-            <div className={`bubble ${stackClass}`}>
+            <div className={`bubble ${stackClass}`} title={new Date(message.createdAt).toLocaleString()}>
               {isEditing ? (
                 <div>
                   <textarea
