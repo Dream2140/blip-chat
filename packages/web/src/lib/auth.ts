@@ -4,8 +4,19 @@ import { cookies } from "next/headers";
 import crypto from "node:crypto";
 import { prisma } from "./prisma";
 
-const JWT_SECRET = process.env.JWT_SECRET || (process.env.NODE_ENV === "production" ? (() => { throw new Error("JWT_SECRET is required in production"); })() : "dev-secret-change-me");
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || (process.env.NODE_ENV === "production" ? (() => { throw new Error("JWT_REFRESH_SECRET is required in production"); })() : "dev-secret-change-me");
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (secret) return secret;
+  if (process.env.NODE_ENV === "production") throw new Error("JWT_SECRET is required in production");
+  return "dev-secret-change-me";
+}
+
+function getJwtRefreshSecret(): string {
+  const secret = process.env.JWT_REFRESH_SECRET;
+  if (secret) return secret;
+  if (process.env.NODE_ENV === "production") throw new Error("JWT_REFRESH_SECRET is required in production");
+  return "dev-secret-change-me";
+}
 
 const ACCESS_TOKEN_TTL = 15 * 60; // 15 minutes
 const REFRESH_TOKEN_TTL = 30 * 24 * 60 * 60; // 30 days
@@ -28,19 +39,19 @@ export async function verifyPassword(
 }
 
 export function signAccessToken(userId: string, nickname: string): string {
-  return jwt.sign({ sub: userId, nickname }, JWT_SECRET, {
+  return jwt.sign({ sub: userId, nickname }, getJwtSecret(), {
     expiresIn: ACCESS_TOKEN_TTL,
   });
 }
 
 export function signSocketToken(userId: string, nickname: string): string {
-  return jwt.sign({ sub: userId, nickname, type: "socket" }, JWT_SECRET, {
+  return jwt.sign({ sub: userId, nickname, type: "socket" }, getJwtSecret(), {
     expiresIn: SOCKET_TOKEN_TTL,
   });
 }
 
 export function verifyAccessToken(token: string): AccessTokenPayload {
-  return jwt.verify(token, JWT_SECRET) as AccessTokenPayload;
+  return jwt.verify(token, getJwtSecret()) as AccessTokenPayload;
 }
 
 export async function generateRefreshToken(userId: string): Promise<string> {
