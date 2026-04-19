@@ -37,6 +37,9 @@ export function Sidebar() {
   const addConversation = useConversationStore((s) => s.addConversation);
   const appendConversations = useConversationStore((s) => s.appendConversations);
   const [showNewGroup, setShowNewGroup] = useState(false);
+  const [dnd, setDnd] = useState(() =>
+    typeof window !== "undefined" ? localStorage.getItem("blip-dnd") === "true" : false
+  );
   const [tab, setTab] = useState<Tab>("chats");
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
@@ -89,6 +92,12 @@ export function Sidebar() {
     await apiFetch("/api/auth/logout", { method: "POST" });
     router.push("/login");
     router.refresh();
+  }
+
+  function toggleDnd() {
+    const next = !dnd;
+    setDnd(next);
+    localStorage.setItem("blip-dnd", String(next));
   }
 
   // Fetch all users when People tab is activated
@@ -211,6 +220,13 @@ export function Sidebar() {
               onClick={() => setShowNewGroup(true)}
             >
               <Icons.Plus />
+            </button>
+            <button
+              className="icon-btn"
+              title={dnd ? "Do Not Disturb (on)" : "Do Not Disturb (off)"}
+              onClick={toggleDnd}
+            >
+              {dnd ? <Icons.BellOff /> : <Icons.Bell />}
             </button>
             <button
               className="icon-btn"

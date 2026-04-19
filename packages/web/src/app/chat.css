@@ -1462,6 +1462,49 @@
   background: var(--bg-sunk);
 }
 
+/* ============ In-conversation search bar ============ */
+.conv-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 24px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--line);
+  animation: pop-in 0.15s ease;
+}
+.conv-search-bar input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  color: var(--ink);
+}
+.conv-search-bar input::placeholder {
+  color: var(--ink-3);
+}
+.conv-search-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--ink-3);
+}
+.conv-search-bar button {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  color: var(--ink-2);
+  font-size: 12px;
+  transition: background 0.15s;
+}
+.conv-search-bar button:hover:not(:disabled) {
+  background: var(--bg-sunk);
+}
+.conv-search-bar button:disabled {
+  opacity: 0.3;
+}
+
 /* ============ Message highlight (search result scroll-to) ============ */
 .highlight-msg .bubble {
   animation: msg-highlight 2s ease;
@@ -1597,4 +1640,31 @@
 @keyframes shimmer {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
+}
+
+/* ============ Call history messages ============ */
+.call-msg {
+  justify-content: center;
+}
+.call-history-bubble {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 18px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 13px;
+}
+.call-history-icon {
+  font-size: 18px;
+}
+.call-history-label {
+  font-weight: 600;
+  color: var(--ink);
+}
+.call-history-time {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--ink-3);
 }

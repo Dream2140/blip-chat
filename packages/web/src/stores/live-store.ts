@@ -23,6 +23,8 @@ interface LiveStore {
   callRemoteUserId: string | null;
   callRemoteNickname: string | null;
   callIsMuted: boolean;
+  callIsInitiator: boolean;
+  callStartedAt: number | null;
   startCall: (userId: string, nickname: string) => void;
   receiveCall: (callerId: string, callerNickname: string) => void;
   acceptCall: () => void;
@@ -91,12 +93,14 @@ export const useLiveStore = create<LiveStore>((set, get) => ({
   callRemoteUserId: null,
   callRemoteNickname: null,
   callIsMuted: false,
+  callIsInitiator: false,
+  callStartedAt: null,
   startCall: (userId, nickname) =>
-    set({ callState: "calling", callRemoteUserId: userId, callRemoteNickname: nickname }),
+    set({ callState: "calling", callRemoteUserId: userId, callRemoteNickname: nickname, callIsInitiator: true }),
   receiveCall: (callerId, callerNickname) =>
-    set({ callState: "incoming", callRemoteUserId: callerId, callRemoteNickname: callerNickname }),
-  acceptCall: () => set({ callState: "active" }),
+    set({ callState: "incoming", callRemoteUserId: callerId, callRemoteNickname: callerNickname, callIsInitiator: false }),
+  acceptCall: () => set({ callState: "active", callStartedAt: Date.now() }),
   endCall: () =>
-    set({ callState: "idle", callRemoteUserId: null, callRemoteNickname: null, callIsMuted: false }),
+    set({ callState: "idle", callRemoteUserId: null, callRemoteNickname: null, callIsMuted: false, callIsInitiator: false, callStartedAt: null }),
   toggleMute: () => set((state) => ({ callIsMuted: !state.callIsMuted })),
 }));

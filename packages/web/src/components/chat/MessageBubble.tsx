@@ -174,6 +174,39 @@ export function MessageBubble({
     minute: "2-digit",
   });
 
+  // Render call history messages
+  if (message.text?.startsWith("__CALL:")) {
+    try {
+      const callData = JSON.parse(message.text.slice(7));
+      const formatDuration = (seconds: number): string => {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${m}:${s.toString().padStart(2, "0")}`;
+      };
+      return (
+        <div className="msg-row call-msg">
+          <div className="call-history-bubble">
+            <span className="call-history-icon">
+              {callData.type === "completed" ? "\uD83D\uDCDE" : callData.type === "missed" ? "\uD83D\uDCF5" : "\uD83D\uDCF4"}
+            </span>
+            <div>
+              <div className="call-history-label">
+                {callData.type === "completed"
+                  ? `Voice call \u00B7 ${formatDuration(callData.duration)}`
+                  : callData.type === "missed"
+                    ? "Missed call"
+                    : "Call cancelled"}
+              </div>
+              <div className="call-history-time">{time}</div>
+            </div>
+          </div>
+        </div>
+      );
+    } catch {
+      // If JSON parse fails, fall through to normal rendering
+    }
+  }
+
   const readText =
     message.status === "read"
       ? "✓✓ read"

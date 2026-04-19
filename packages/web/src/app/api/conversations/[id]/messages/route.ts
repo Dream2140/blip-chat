@@ -37,6 +37,7 @@ export async function GET(
     const { id: conversationId } = await params;
     const cursor = req.nextUrl.searchParams.get("cursor");
     const aroundId = req.nextUrl.searchParams.get("around");
+    const search = req.nextUrl.searchParams.get("search");
     const limit = Math.min(
       parseInt(req.nextUrl.searchParams.get("limit") || "50", 10) || 50,
       100
@@ -131,6 +132,7 @@ export async function GET(
       where: {
         conversationId,
         ...(cursor ? { createdAt: { lt: new Date(cursor) } } : {}),
+        ...(search ? { text: { contains: search, mode: "insensitive" as const } } : {}),
       },
       include: {
         sender: { select: userSelect },

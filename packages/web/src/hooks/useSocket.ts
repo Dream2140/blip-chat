@@ -8,6 +8,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useConversationStore } from "@/stores/conversation-store";
 import { useLiveStore } from "@/stores/live-store";
 import { apiFetch } from "@/lib/api-client";
+import { playNotificationSound } from "@/lib/notification-sound";
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -202,6 +203,26 @@ export function useSocket() {
           );
           const newTitle = totalUnread > 0 ? `(${totalUnread}) blip` : "blip";
           if (document.title !== newTitle) document.title = newTitle;
+
+          // Check DND and mute before playing sound / showing notification
+          const dndEnabled = localStorage.getItem("blip-dnd") === "true";
+          const conv = useConversationStore.getState().conversations.find(c => c.id === data.conversationId);
+          if (!dndEnabled && !conv?.isMuted) {
+            // Play notification sound
+            playNotificationSound();
+
+            // Show desktop notification if tab not focused
+            if (typeof document !== "undefined" && document.hidden && Notification.permission === "granted") {
+              const notif = new Notification("blip", {
+                body: `New message: ${data.text?.slice(0, 100) || "New message"}`,
+                tag: data.conversationId, // Collapse multiple per conversation
+              });
+              notif.onclick = () => {
+                window.focus();
+                window.location.href = `/c/${data.conversationId}`;
+              };
+            }
+          }
         }
       });
 
@@ -281,11 +302,42 @@ export function useSocket() {
 
       socket.on("call:reject" as never, (() => {
         console.log("[Socket] call:reject");
+        // Caller receives reject — save "missed" call message if we're the initiator
+        const liveState = useLiveStore.getState();
+        if (liveState.callIsInitiator && liveState.callRemoteUserId) {
+          const conversations = useConversationStore.getState().conversations;
+          const conv = conversations.find(
+            (c) => c.type === "DIRECT" && c.participants.some((p) => p.userId === liveState.callRemoteUserId)
+          );
+          if (conv) {
+            apiFetch(`/api/conversations/${conv.id}/messages`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text: `__CALL:${JSON.stringify({ type: "missed", duration: 0 })}` }),
+            }).catch(() => {});
+          }
+        }
         import("@/hooks/useWebRTC").then(({ webrtcCleanup }) => webrtcCleanup());
       }) as never);
 
       socket.on("call:end" as never, (() => {
         console.log("[Socket] call:end");
+        // If we're the initiator and the callee ended an active call, save "completed"
+        const liveState = useLiveStore.getState();
+        if (liveState.callIsInitiator && liveState.callState === "active" && liveState.callStartedAt) {
+          const duration = Math.round((Date.now() - liveState.callStartedAt) / 1000);
+          const conversations = useConversationStore.getState().conversations;
+          const conv = conversations.find(
+            (c) => c.type === "DIRECT" && c.participants.some((p) => p.userId === liveState.callRemoteUserId)
+          );
+          if (conv) {
+            apiFetch(`/api/conversations/${conv.id}/messages`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ text: `__CALL:${JSON.stringify({ type: "completed", duration })}` }),
+            }).catch(() => {});
+          }
+        }
         import("@/hooks/useWebRTC").then(({ webrtcCleanup }) => webrtcCleanup());
       }) as never);
 

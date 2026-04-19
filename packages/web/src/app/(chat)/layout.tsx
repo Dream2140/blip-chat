@@ -121,6 +121,11 @@ export default function ChatLayout({
     fetchConversations();
     connect();
 
+    // Request notification permission on first load
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+
     return () => {
       disconnect();
     };

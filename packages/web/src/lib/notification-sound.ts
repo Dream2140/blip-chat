@@ -1,6 +1,7 @@
 export function playNotificationSound() {
   try {
     if (localStorage.getItem("blip-sounds") === "off") return;
+    if (localStorage.getItem("blip-dnd") === "true") return;
     const ctx = new AudioContext();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();

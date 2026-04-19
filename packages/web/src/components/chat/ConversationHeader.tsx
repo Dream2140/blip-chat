@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { useAuthStore } from "@/stores/auth-store";
 import { useConversationStore } from "@/stores/conversation-store";
@@ -39,6 +39,44 @@ export function ConversationHeader({ conversationId }: ConversationHeaderProps) 
   const [pinnedMessages, setPinnedMessages] = useState<Message[]>([]);
   const [showPinned, setShowPinned] = useState(false);
   const fetched = useRef(false);
+
+  // In-conversation search
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Array<{ id: string; text: string; createdAt: string }>>([]);
+  const [searchIndex, setSearchIndex] = useState(0);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const doSearch = useCallback(async (q: string) => {
+    if (q.length < 2) { setSearchResults([]); return; }
+    const res = await apiFetch(
+      `/api/conversations/${conversationId}/messages?search=${encodeURIComponent(q)}&limit=50`
+    );
+    if (res.ok) {
+      const data = await res.json();
+      setSearchResults(data.items.map((m: any) => ({ id: m.id, text: m.text, createdAt: m.createdAt })));
+      setSearchIndex(0);
+    }
+  }, [conversationId]);
+
+  const debouncedSearch = useMemo(() => {
+    return (q: string) => {
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = setTimeout(() => doSearch(q), 300);
+    };
+  }, [doSearch]);
+
+  const navigateResult = useCallback((dir: number) => {
+    if (searchResults.length === 0) return;
+    const newIndex = (searchIndex + dir + searchResults.length) % searchResults.length;
+    setSearchIndex(newIndex);
+    const msgEl = document.getElementById(`msg-${searchResults[newIndex].id}`);
+    if (msgEl) {
+      msgEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      msgEl.classList.add("highlight-msg");
+      setTimeout(() => msgEl.classList.remove("highlight-msg"), 2000);
+    }
+  }, [searchResults, searchIndex]);
 
   useEffect(() => {
     fetched.current = false;
@@ -151,10 +189,40 @@ export function ConversationHeader({ conversationId }: ConversationHeaderProps) 
           </div>
         </div>
         <div className="header-spacer" />
+        <button className="icon-btn" onClick={() => { setShowSearch((v) => !v); if (showSearch) { setSearchQuery(""); setSearchResults([]); } }}>
+          <Icons.Search />
+        </button>
         <button className="icon-btn" onClick={handleStartCall}><Icons.Phone /></button>
         <button className="icon-btn"><Icons.Video /></button>
         <button className="icon-btn"><Icons.More /></button>
       </header>
+      {showSearch && (
+        <div className="conv-search-bar">
+          <input
+            autoFocus
+            placeholder="search in conversation..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              debouncedSearch(e.target.value);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") { setShowSearch(false); setSearchQuery(""); setSearchResults([]); }
+              if (e.key === "Enter") navigateResult(1);
+            }}
+          />
+          {searchResults.length > 0 && (
+            <span className="conv-search-count">
+              {searchIndex + 1}/{searchResults.length}
+            </span>
+          )}
+          <button onClick={() => navigateResult(-1)} disabled={searchResults.length === 0}>&#9650;</button>
+          <button onClick={() => navigateResult(1)} disabled={searchResults.length === 0}>&#9660;</button>
+          <button onClick={() => { setShowSearch(false); setSearchQuery(""); setSearchResults([]); }}>
+            <Icons.X />
+          </button>
+        </div>
+      )}
       {pinnedCount > 0 && (
         <div
           className="pinned-banner"
