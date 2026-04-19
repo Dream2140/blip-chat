@@ -133,3 +133,99 @@ v0.1 — MVP задеплоен. v0.2 — превращаем в реальны
 ## E2E Tests — 27 passing
 
 Auth (10), Sidebar (3), 1:1 Chat (6), Group Chat (2), API Validation (4), Bug Fixes (2)
+
+---
+
+# blip v0.3 Roadmap — Stability & Security
+
+## Контекст
+
+v0.2 — фичи есть, но проект не hardened. v0.3 — стабильность, безопасность, расширение текущего функционала. Медиа (S3/R2) откладываем до v0.4.
+
+---
+
+## Patch 0.3.0 — Security Hardening (CRITICAL)
+
+Найдено аудитом, приоритет максимальный:
+
+- [ ] **JWT secrets validation** — throw на старте если JWT_SECRET / JWT_REFRESH_SECRET не заданы (сейчас fallback на "dev-secret-change-me")
+- [ ] **Authorization на pin/reactions** — проверять что юзер participant conversation перед pin/react (сейчас любой аутентифицированный может)
+- [ ] **Rate limiting** — middleware с in-memory limiter: auth endpoints (5/min), messages (30/min), search (10/min)
+- [ ] **Account enumeration fix** — register/login возвращают одинаковые ошибки ("Invalid credentials" вместо "Email not found")
+- [ ] **Input sanitization** — parseInt NaN guard на limit/offset, max participant count (50), max message length (4000)
+- [ ] **CSP headers** — Content-Security-Policy в Next.js middleware
+- [ ] **Secure cookie flags** — проверить httpOnly, secure, sameSite=strict на всех cookies
+
+## Patch 0.3.1 — Stability Fixes
+
+Найдено аудитом, разные приоритеты:
+
+- [ ] **Fix ws without Redis** — registerSocketHandlers() должен вызываться всегда, Redis optional для pub/sub
+- [ ] **Read cursor race condition** — использовать database-level comparison вместо fetch-then-update
+- [ ] **Clean `as never` casts** — sender в socket events должен передавать реальные данные, убрать пустые объекты
+- [ ] **Global socket cleanup** — на page unload закрывать socket, очищать module-level state
+- [ ] **WebRTC SDP validation** — валидировать SDP перед передачей в RTCPeerConnection
+- [ ] **Unhandled promise rejections** — wrap socket handlers в try/catch на ws стороне
+
+## Patch 0.3.2 — Feature Completions
+
+Доделать незакрытые фичи из v0.2:
+
+- [ ] **Jump to message from search** — по клику на search result скролить к конкретному сообщению
+- [ ] **Browser Push Notifications** — Web Push API (service worker + VAPID keys)
+- [ ] **Message forwarding** — переслать сообщение в другой чат
+- [ ] **Unread count на sidebar** — live-обновление при новом сообщении (не ждать refetch)
+- [ ] **Delivered status** — "доставлено" когда WS push дошёл до клиента (сейчас только sent/read)
+
+## Patch 0.3.3 — UX Polish
+
+- [ ] **Message timestamp on hover** — полная дата/время при наведении
+- [ ] **Link preview** — OG meta для URL в сообщениях
+- [ ] **Keyboard shortcuts** — Esc закрыть модалки, Ctrl+K поиск
+- [ ] **Mobile swipe-to-reply** — свайп вправо для reply
+- [ ] **Last seen** — "last seen 5 min ago" под именем в header
+- [ ] **Online status в header** — зелёная точка + "online" текст для DM
+- [ ] **Empty search state** — illustration + text когда ничего не найдено
+
+## Patch 0.3.4 — Testing & CI
+
+- [ ] **E2E: edit/delete message** — тесты на edit inline + delete confirmation
+- [ ] **E2E: context menu** — правый клик → verify options
+- [ ] **E2E: typing indicator** — два юзера, один печатает, второй видит
+- [ ] **E2E: reconnect sync** — симуляция разрыва WS, verify catch-up
+- [ ] **Unit tests для auth** — JWT sign/verify, refresh rotation, cookie handling
+- [ ] **Unit tests для API** — conversations CRUD, messages CRUD, edge cases
+- [ ] **Load test** — k6 или artillery: 100 concurrent users, measure p95 latency
+
+## Patch 0.3.5 — Group Chat Improvements
+
+- [ ] **Admin panel** — UI для управления группой (добавить/удалить участника, сменить название)
+- [ ] **Leave group** — кнопка "покинуть группу" + API
+- [ ] **Group avatar** — emoji или инициалы участников
+- [ ] **Member roles indicator** — значок admin в списке участников
+- [ ] **Who read message** — по клику на галочки показать кто прочитал (для групп)
+
+---
+
+## Отложено до v0.4 (требует S3/R2)
+
+- [ ] Avatar upload
+- [ ] Image messages + lightbox
+- [ ] File sharing
+- [ ] Voice messages (record + playback)
+- [ ] Shared media gallery
+
+---
+
+## Порядок работы
+
+| Приоритет | Патч | Описание | Effort |
+|-----------|------|----------|--------|
+| P0 | 0.3.0 | Security hardening | 1 день |
+| P0 | 0.3.1 | Stability fixes | 0.5 дня |
+| P1 | 0.3.4 | Testing & CI | 1 день |
+| P1 | 0.3.2 | Feature completions | 1-2 дня |
+| P2 | 0.3.3 | UX polish | 1 день |
+| P2 | 0.3.5 | Group improvements | 1 день |
+
+Security и stability — первые. Тесты — параллельно с фичами. UX polish и группы — последние.
