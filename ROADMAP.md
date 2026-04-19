@@ -204,25 +204,149 @@ v0.2 — фичи есть, но проект не hardened. v0.3 — стаби
 
 ---
 
-## Отложено до v0.4 (требует S3/R2)
+---
 
-- [ ] Avatar upload
-- [ ] Image messages + lightbox
-- [ ] File sharing
-- [ ] Voice messages (record + playback)
-- [ ] Shared media gallery
+# blip v0.5 Roadmap — Chat Experience
+
+## Контекст
+
+v0.3 — стабильный, безопасный, оптимизированный фундамент. v0.5 — превращаем в настоящий мессенджер с фичами, которых ожидает юзер. Медиа (S3/R2) откладываем до v0.6.
 
 ---
 
-## Порядок работы
+## Patch 0.5.0 — Conversation Management
+
+Базовые операции над чатами, которых не хватает:
+
+- [ ] **Mute conversation** — mute/unmute per conversation, no sound/badge when muted
+  - Schema: `isMuted: Boolean` на ConversationParticipant
+  - API: `PATCH /api/conversations/[id]/mute`
+  - UI: toggle в ConversationHeader + context menu на sidebar item
+  - Client: skip sound + badge increment для muted conversations
+- [ ] **Archive conversation** — скрыть из основного списка, показать в отдельном табе
+  - Schema: `archivedAt: DateTime?` на ConversationParticipant
+  - API: `PATCH /api/conversations/[id]/archive`
+  - UI: sidebar filter (active/archived), swipe-left или context menu для archive
+- [ ] **Pin conversation** — закрепить чат вверху sidebar
+  - Schema: `pinnedAt: DateTime?` на ConversationParticipant
+  - Sidebar: pinned conversations рендерятся первыми
+- [ ] **Delete conversation** — удалить для себя (не для всех)
+  - Schema: `deletedAt: DateTime?` на ConversationParticipant
+  - Фильтровать в conversations API
+
+## Patch 0.5.1 — Rich Text & Links
+
+Форматирование сообщений и ссылки:
+
+- [ ] **Link detection** — автоматически находить URL в тексте, делать кликабельными
+  - Regex для URL, оборачивать в `<a>` с target="_blank" rel="noopener"
+  - Стилизация: подчёркивание + цвет primary
+- [ ] **Code blocks** — \`inline code\` и \`\`\`multiline\`\`\`
+  - Parse markdown-style backticks
+  - Mono font (JetBrains Mono), тёмный фон
+- [ ] **Bold/Italic** — *bold* и _italic_ через markdown
+- [ ] **Message text selection** — копирование текста из bubble (сейчас может быть заблокировано touch handlers)
+
+## Patch 0.5.2 — Privacy & Safety
+
+Контроль приватности:
+
+- [ ] **Block user** — заблокировать юзера
+  - Schema: `Block` модель (blockerId, blockedId)
+  - API: `POST /api/users/[id]/block`, `DELETE /api/users/[id]/block`
+  - Blocked юзер не может: создать DM, отправить сообщение, видеть online/lastSeen
+  - UI: кнопка в DetailsPanel + ConversationHeader
+- [ ] **Read receipts toggle** — отключить "прочитано" для своего аккаунта
+  - Schema: `hideReadReceipts: Boolean` на User
+  - Settings page toggle
+  - API не отправляет read cursor если отключено
+- [ ] **Online status toggle** — скрыть свой online/lastSeen
+  - Schema: `hideOnlineStatus: Boolean` на User
+  - WS не публикует USER_ONLINE если отключено
+
+## Patch 0.5.3 — Smart Notifications
+
+Гранулярные уведомления:
+
+- [ ] **Per-conversation notification settings** — звук/popup настройки per chat
+  - UI: в ConversationHeader dropdown
+  - localStorage: `blip-notify-{conversationId}`
+- [ ] **Notification sound variants** — 3-4 разных звука на выбор
+  - Settings page: выбор звука с превью
+- [ ] **Desktop notifications** — Notification API (не Push, проще)
+  - Запрос permission при первом сообщении
+  - Показывать только когда таб не в фокусе
+  - Клик на notification → open conversation
+- [ ] **Do Not Disturb** — глобальный DND режим
+  - Toggle в sidebar header
+  - Подавляет все звуки и notifications
+
+## Patch 0.5.4 — Draft & Compose
+
+Улучшения composer:
+
+- [ ] **Draft persistence** — сохранять набранный текст при смене чата
+  - Store: `drafts: Record<conversationId, string>` в conversation-store
+  - При смене чата — сохранить текущий draft, восстановить draft target
+  - Sidebar: показать "Draft: ..." вместо last message если есть draft
+- [ ] **Mention users** — @nickname в групповых чатах
+  - Autocomplete popup при вводе @
+  - Highlight mention в bubble (синий цвет)
+  - Notification при mention (даже если чат muted)
+- [ ] **Paste image preview** — вставить картинку из clipboard, показать превью
+  - Только превью (отправка — в v0.6 с S3/R2)
+  - Toast: "Image sending coming soon"
+
+## Patch 0.5.5 — Starred Messages & Bookmarks
+
+Закладки на важные сообщения:
+
+- [ ] **Star message** — пометить сообщение звёздочкой (per-user, не global)
+  - Schema: `StarredMessage` модель (userId, messageId)
+  - API: `POST /api/messages/[id]/star`
+  - UI: star кнопка в context menu + hover actions
+  - Starred messages доступны через sidebar filter
+- [ ] **Starred messages view** — отдельная страница /starred
+  - Список всех starred messages с ссылками на чаты
+  - Группировка по conversation
+
+## Patch 0.5.6 — Search Improvements
+
+Расширенный поиск:
+
+- [ ] **Search within conversation** — искать только в текущем чате
+  - UI: search icon в ConversationHeader → inline search bar
+  - API: `/api/conversations/[id]/messages?search=query`
+  - Навигация по результатам (← →) с highlight
+- [ ] **Search filters** — фильтры: from:nickname, before:date, after:date
+  - Parse filter syntax в search input
+  - Apply filters в API query
+- [ ] **Recent searches** — история поиска
+  - localStorage: последние 5 запросов
+
+---
+
+## Отложено до v0.6 (требует S3/R2)
+
+- [ ] Avatar upload
+- [ ] Image messages + lightbox
+- [ ] File sharing + drag-and-drop
+- [ ] Voice messages (record + playback)
+- [ ] Shared media gallery
+- [ ] Video messages
+
+---
+
+## Порядок работы v0.5
 
 | Приоритет | Патч | Описание | Effort |
 |-----------|------|----------|--------|
-| P0 | 0.3.0 | Security hardening | 1 день |
-| P0 | 0.3.1 | Stability fixes | 0.5 дня |
-| P1 | 0.3.4 | Testing & CI | 1 день |
-| P1 | 0.3.2 | Feature completions | 1-2 дня |
-| P2 | 0.3.3 | UX polish | 1 день |
-| P2 | 0.3.5 | Group improvements | 1 день |
+| P0 | 0.5.0 | Conversation management (mute/archive/pin) | 1 день |
+| P0 | 0.5.1 | Rich text & links | 0.5 дня |
+| P1 | 0.5.2 | Privacy & safety (block/read toggle) | 1 день |
+| P1 | 0.5.4 | Draft & compose (drafts, mentions) | 1 день |
+| P2 | 0.5.3 | Smart notifications (desktop, DND) | 0.5 дня |
+| P2 | 0.5.5 | Starred messages | 0.5 дня |
+| P2 | 0.5.6 | Search improvements | 0.5 дня |
 
-Security и stability — первые. Тесты — параллельно с фичами. UX polish и группы — последние.
+Conversation management и rich text — первые (базовый UX). Privacy и compose — следующие. Notifications, stars, search — polish.
