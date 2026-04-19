@@ -12,6 +12,9 @@ interface ConversationStore {
   updateConversation: (id: string, update: Partial<Conversation>) => void;
   addConversation: (conversation: Conversation) => void;
 
+  incrementUnread: (conversationId: string) => void;
+  clearUnread: (conversationId: string) => void;
+
   messagesByConversation: Record<string, Message[]>;
   setMessages: (conversationId: string, messages: Message[]) => void;
   addMessage: (conversationId: string, message: Message) => void;
@@ -36,6 +39,18 @@ export const useConversationStore = create<ConversationStore>((set) => ({
       if (state.conversations.find((c) => c.id === conversation.id)) return state;
       return { conversations: [conversation, ...state.conversations] };
     }),
+  incrementUnread: (conversationId) =>
+    set((state) => ({
+      conversations: state.conversations.map((c) =>
+        c.id === conversationId ? { ...c, unreadCount: (c.unreadCount || 0) + 1 } : c
+      ),
+    })),
+  clearUnread: (conversationId) =>
+    set((state) => ({
+      conversations: state.conversations.map((c) =>
+        c.id === conversationId ? { ...c, unreadCount: 0 } : c
+      ),
+    })),
 
   messagesByConversation: {},
   setMessages: (conversationId, messages) =>

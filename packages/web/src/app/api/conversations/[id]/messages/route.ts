@@ -36,6 +36,7 @@ export async function GET(
   return withAuth(request, async (req, auth) => {
     const { id: conversationId } = await params;
     const cursor = req.nextUrl.searchParams.get("cursor");
+    const aroundId = req.nextUrl.searchParams.get("around");
     const limit = Math.min(
       parseInt(req.nextUrl.searchParams.get("limit") || "50", 10) || 50,
       100
@@ -48,6 +49,86 @@ export async function GET(
 
     if (!participant) {
       return NextResponse.json({ error: "Not a participant" }, { status: 403 });
+    }
+
+    // "around" mode: fetch messages surrounding a specific message
+    if (aroundId) {
+      const targetMsg = await prisma.message.findFirst({
+        where: { id: aroundId, conversationId },
+        select: { createdAt: true },
+      });
+
+      if (!targetMsg) {
+        return NextResponse.json({ error: "Message not found" }, { status: 404 });
+      }
+
+      const half = Math.floor(limit / 2);
+
+      const [before, after] = await Promise.all([
+        prisma.message.findMany({
+          where: { conversationId, createdAt: { lt: targetMsg.createdAt } },
+          include: {
+            sender: { select: userSelect },
+            replyTo: { include: { sender: { select: userSelect } } },
+            reactions: true,
+            readReceipts: { select: { userId: true } },
+          },
+          orderBy: { createdAt: "desc" },
+          take: half,
+        }),
+        prisma.message.findMany({
+          where: { conversationId, createdAt: { gte: targetMsg.createdAt } },
+          include: {
+            sender: { select: userSelect },
+            replyTo: { include: { sender: { select: userSelect } } },
+            reactions: true,
+            readReceipts: { select: { userId: true } },
+          },
+          orderBy: { createdAt: "asc" },
+          take: half + 1, // +1 to include the target message itself
+        }),
+      ]);
+
+      const allMessages = [...before.reverse(), ...after];
+
+      const items = allMessages.map((m) => ({
+        id: m.id,
+        conversationId: m.conversationId,
+        senderId: m.senderId,
+        sender: {
+          ...m.sender,
+          lastSeenAt: m.sender.lastSeenAt.toISOString(),
+          createdAt: m.sender.createdAt.toISOString(),
+        },
+        text: m.text,
+        replyToId: m.replyToId,
+        replyTo: m.replyTo
+          ? {
+              ...m.replyTo,
+              sender: {
+                ...m.replyTo.sender,
+                lastSeenAt: m.replyTo.sender.lastSeenAt.toISOString(),
+                createdAt: m.replyTo.sender.createdAt.toISOString(),
+              },
+              replyToId: m.replyTo.replyToId,
+              replyTo: null,
+              editedAt: m.replyTo.editedAt?.toISOString() || null,
+              deletedAt: m.replyTo.deletedAt?.toISOString() || null,
+              createdAt: m.replyTo.createdAt.toISOString(),
+              status: "sent" as const,
+            }
+          : null,
+        editedAt: m.editedAt?.toISOString() || null,
+        deletedAt: m.deletedAt?.toISOString() || null,
+        pinnedAt: m.pinnedAt?.toISOString() || null,
+        createdAt: m.createdAt.toISOString(),
+        status: (m.senderId === auth.userId && m.readReceipts.some((r: { userId: string }) => r.userId !== auth.userId))
+          ? "read" as const
+          : "sent" as const,
+        reactions: groupReactions(m.reactions, auth.userId),
+      }));
+
+      return NextResponse.json({ items, nextCursor: null, hasMore: before.length >= half });
     }
 
     const messages = await prisma.message.findMany({

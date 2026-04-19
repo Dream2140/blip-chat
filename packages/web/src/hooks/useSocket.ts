@@ -177,6 +177,26 @@ export function useSocket() {
           status: "delivered",
           reactions: [],
         });
+
+        // Send delivery acknowledgment back to the sender
+        socket.emit(SocketEvents.MESSAGE_DELIVERED, {
+          messageId: data.id,
+          conversationId: data.conversationId,
+          senderId: data.senderId,
+        });
+
+        // Increment unread count if this conversation is not currently active
+        const activeId = useConversationStore.getState().activeConversationId;
+        if (data.conversationId !== activeId) {
+          useConversationStore.getState().incrementUnread(data.conversationId);
+
+          // Update document title with new total unread count
+          const totalUnread = useConversationStore.getState().conversations.reduce(
+            (sum, c) => sum + (c.unreadCount ?? 0),
+            0
+          );
+          document.title = totalUnread > 0 ? `(${totalUnread}) blip` : "blip";
+        }
       });
 
       socket.on(SocketEvents.MESSAGE_UPDATED, (data) => {
@@ -184,6 +204,18 @@ export function useSocket() {
           text: data.text,
           editedAt: data.editedAt,
         });
+      });
+
+      // Delivery confirmation — update sender's message status to "delivered"
+      socket.on(SocketEvents.MESSAGE_DELIVERED, (data) => {
+        const msg = useConversationStore.getState().messagesByConversation[data.conversationId]
+          ?.find((m) => m.id === data.messageId);
+        // Only upgrade to "delivered" if not already "read"
+        if (msg && msg.status !== "read") {
+          useConversationStore.getState().updateMessage(data.conversationId, data.messageId, {
+            status: "delivered",
+          });
+        }
       });
 
       socket.on(SocketEvents.MESSAGE_DELETED, (data) => {

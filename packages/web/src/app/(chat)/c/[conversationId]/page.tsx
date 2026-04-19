@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/stores/auth-store";
 import { useConversationStore } from "@/stores/conversation-store";
 import { useLiveStore } from "@/stores/live-store";
@@ -15,7 +15,9 @@ const EMPTY_MESSAGES: Message[] = [];
 
 export default function ConversationPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const conversationId = params.conversationId as string;
+  const highlightMessageId = searchParams.get("msg");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [replyTo, setReplyTo] = useState<Message | null>(null);
@@ -59,6 +61,15 @@ export default function ConversationPage() {
 
   useEffect(() => {
     useConversationStore.getState().setActiveConversationId(conversationId);
+    useConversationStore.getState().clearUnread(conversationId);
+
+    // Update document title after clearing unread
+    const totalUnread = useConversationStore.getState().conversations.reduce(
+      (sum, c) => sum + (c.unreadCount ?? 0),
+      0
+    );
+    document.title = totalUnread > 0 ? `(${totalUnread}) blip` : "blip";
+
     setLoading(true);
     setError("");
     setReplyTo(null);
@@ -84,6 +95,24 @@ export default function ConversationPage() {
         }
 
         await fetchMessages();
+
+        // If a specific message is targeted, check if it's loaded
+        if (highlightMessageId) {
+          const loaded = useConversationStore.getState().messagesByConversation[conversationId] ?? [];
+          const found = loaded.some((m: Message) => m.id === highlightMessageId);
+          if (!found) {
+            // Fetch messages around the target
+            const aroundRes = await apiFetch(
+              `/api/conversations/${conversationId}/messages?around=${encodeURIComponent(highlightMessageId)}&limit=50`
+            );
+            if (aroundRes.ok) {
+              const aroundData = await aroundRes.json();
+              if (aroundData?.items) {
+                useConversationStore.getState().setMessages(conversationId, aroundData.items);
+              }
+            }
+          }
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong");
       } finally {
@@ -96,7 +125,7 @@ export default function ConversationPage() {
     return () => {
       useConversationStore.getState().setActiveConversationId(null);
     };
-  }, [conversationId, fetchMessages]);
+  }, [conversationId, fetchMessages, highlightMessageId]);
 
   // Fallback poll ONLY when WebSocket is disconnected
   useEffect(() => {
@@ -127,6 +156,7 @@ export default function ConversationPage() {
         conversationId={conversationId}
         messages={messages}
         onReply={setReplyTo}
+        highlightMessageId={highlightMessageId}
       />
       <MessageInput
         conversationId={conversationId}

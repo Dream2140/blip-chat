@@ -284,7 +284,7 @@ export function Sidebar() {
                       onClick={() => {
                         setQuery("");
                         setSearchResults(null);
-                        router.push(`/c/${msg.conversationId}`);
+                        router.push(`/c/${msg.conversationId}?msg=${msg.id}`);
                       }}
                       style={{ width: "100%", textAlign: "left" }}
                     >

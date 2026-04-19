@@ -91,6 +91,18 @@ export function registerSocketHandlers(
     }
   });
 
+  // Delivery acknowledgments — forward to the original sender
+  socket.on(SocketEvents.MESSAGE_DELIVERED, ({ messageId, conversationId, senderId }) => {
+    try {
+      io.to(`user:${senderId}`).emit(SocketEvents.MESSAGE_DELIVERED, {
+        messageId,
+        conversationId,
+      });
+    } catch (err) {
+      console.error("[Socket] MESSAGE_DELIVERED error:", err);
+    }
+  });
+
   // Call signaling — use rooms (works across Redis-connected instances)
   socket.on(SocketEvents.CALL_INITIATE, ({ targetUserId }) => {
     try {

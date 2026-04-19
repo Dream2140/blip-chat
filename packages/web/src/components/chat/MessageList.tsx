@@ -13,9 +13,10 @@ interface MessageListProps {
   conversationId: string;
   messages: Message[];
   onReply?: (message: Message) => void;
+  highlightMessageId?: string | null;
 }
 
-export function MessageList({ conversationId, messages, onReply }: MessageListProps) {
+export function MessageList({ conversationId, messages, onReply, highlightMessageId }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const currentUser = useAuthStore((s) => s.currentUser);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
@@ -35,10 +36,12 @@ export function MessageList({ conversationId, messages, onReply }: MessageListPr
 
     if (!isNewMessage && didInitialScroll.current) return;
 
-    // Initial load — always scroll to bottom
+    // Initial load — scroll to bottom unless we're targeting a specific message
     if (!didInitialScroll.current) {
       didInitialScroll.current = true;
-      el.scrollTop = el.scrollHeight;
+      if (!highlightMessageId) {
+        el.scrollTop = el.scrollHeight;
+      }
       return;
     }
 
@@ -47,7 +50,7 @@ export function MessageList({ conversationId, messages, onReply }: MessageListPr
     if (isNearBottom) {
       el.scrollTop = el.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, highlightMessageId]);
 
   // Reset initial scroll flag when conversation changes
   useEffect(() => {
@@ -116,6 +119,32 @@ export function MessageList({ conversationId, messages, onReply }: MessageListPr
     setHasMore(true);
   }, [conversationId]);
 
+  // Scroll to and highlight a specific message
+  const highlightedRef = useRef(false);
+  useEffect(() => {
+    if (!highlightMessageId || messages.length === 0) return;
+    // Only highlight once per highlightMessageId
+    if (highlightedRef.current) return;
+
+    const el = document.getElementById(`msg-${highlightMessageId}`);
+    if (!el) return;
+
+    highlightedRef.current = true;
+    // Delay slightly to ensure DOM is settled
+    requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("highlight-msg");
+      setTimeout(() => {
+        el.classList.remove("highlight-msg");
+      }, 2000);
+    });
+  }, [highlightMessageId, messages]);
+
+  // Reset highlight flag when highlightMessageId changes
+  useEffect(() => {
+    highlightedRef.current = false;
+  }, [highlightMessageId]);
+
   let lastDay = "";
 
   return (
@@ -168,7 +197,7 @@ export function MessageList({ conversationId, messages, onReply }: MessageListPr
           else if (sameNext) stackClass = "stacked-top";
 
           return (
-            <div key={message.id}>
+            <div key={message.id} id={`msg-${message.id}`}>
               {showDay && (
                 <div className="day-divider">
                   <span>{formatDay(message.createdAt)}</span>

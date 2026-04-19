@@ -5,6 +5,7 @@ import { useConversationStore } from "@/stores/conversation-store";
 import { apiFetch } from "@/lib/api-client";
 import { useToast } from "./Toast";
 import { UserAvatar } from "./UserAvatar";
+import { ForwardModal } from "./ForwardModal";
 import type { Message, MessageReaction } from "@chat-app/shared";
 
 interface MessageBubbleProps {
@@ -29,6 +30,7 @@ export function MessageBubble({
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 });
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [forwardMessage, setForwardMessage] = useState<Message | null>(null);
 
   const contextMenuRef = useRef<HTMLDivElement>(null);
   const editTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -395,6 +397,14 @@ export function MessageBubble({
           )}
           <button
             onClick={() => {
+              setForwardMessage(message);
+              closeContextMenu();
+            }}
+          >
+            <span>{"\u21AA"}</span> Forward
+          </button>
+          <button
+            onClick={() => {
               togglePin();
               closeContextMenu();
             }}
@@ -402,6 +412,13 @@ export function MessageBubble({
             <span>{"\uD83D\uDCCC"}</span> {message.pinnedAt ? "Unpin" : "Pin"}
           </button>
         </div>
+      )}
+
+      {forwardMessage && (
+        <ForwardModal
+          message={forwardMessage}
+          onClose={() => setForwardMessage(null)}
+        />
       )}
     </>
   );

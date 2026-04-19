@@ -6,6 +6,7 @@ export const SocketEvents = {
   MESSAGE_UPDATED: "message:updated",
   MESSAGE_DELETED: "message:deleted",
   MESSAGE_READ: "message:read",
+  MESSAGE_DELIVERED: "message:delivered",
   USER_TYPING: "user:typing",
   USER_STOP_TYPING: "user:stop_typing",
   USER_ONLINE: "user:online",
@@ -60,6 +61,10 @@ export interface ServerToClientEvents {
     userId: string;
     lastReadMessageId: string;
   }) => void;
+  [SocketEvents.MESSAGE_DELIVERED]: (data: {
+    messageId: string;
+    conversationId: string;
+  }) => void;
   [SocketEvents.USER_TYPING]: (data: {
     conversationId: string;
     userId: string;
@@ -100,6 +105,11 @@ export interface ClientToServerEvents {
   }) => void;
   [SocketEvents.JOIN_CONVERSATIONS]: (data: {
     conversationIds: string[];
+  }) => void;
+  [SocketEvents.MESSAGE_DELIVERED]: (data: {
+    messageId: string;
+    conversationId: string;
+    senderId: string;
   }) => void;
   [SocketEvents.CALL_INITIATE]: (data: { targetUserId: string }) => void;
   [SocketEvents.CALL_ACCEPT]: (data: { targetUserId: string }) => void;
