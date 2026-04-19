@@ -15,6 +15,8 @@ export async function GET(request: NextRequest) {
         bio: true,
         lastSeenAt: true,
         createdAt: true,
+        hideReadReceipts: true,
+        hideOnlineStatus: true,
       },
     });
 
@@ -64,6 +66,8 @@ export async function PATCH(request: NextRequest) {
         bio: true,
         lastSeenAt: true,
         createdAt: true,
+        hideReadReceipts: true,
+        hideOnlineStatus: true,
       },
     });
 

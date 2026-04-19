@@ -8,6 +8,15 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   return withAuth(request, async (req, auth) => {
+    // If user has hideReadReceipts enabled, silently skip updating the cursor
+    const currentUser = await prisma.user.findUnique({
+      where: { id: auth.userId },
+      select: { hideReadReceipts: true },
+    });
+    if (currentUser?.hideReadReceipts) {
+      return NextResponse.json({ ok: true });
+    }
+
     const { id: conversationId } = await params;
     const body = await req.json();
     const { lastMessageId } = body as { lastMessageId: string };

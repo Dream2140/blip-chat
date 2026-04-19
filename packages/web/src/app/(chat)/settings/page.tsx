@@ -168,6 +168,11 @@ export default function SettingsPage() {
   const [accent, setAccent] = useState("violet");
   const [bubbleStyle, setBubbleStyle] = useState("asymmetric");
 
+  /* ── privacy state ── */
+  const [hideReadReceipts, setHideReadReceipts] = useState(false);
+  const [hideOnlineStatus, setHideOnlineStatus] = useState(false);
+  const [savingPrivacy, setSavingPrivacy] = useState(false);
+
   /* ── notification state ── */
   const [sounds, setSounds] = useState(true);
   const [preview, setPreview] = useState(true);
@@ -192,6 +197,10 @@ export default function SettingsPage() {
     if (currentUser) {
       setNickname(currentUser.nickname);
       setBio(currentUser.bio || "");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const user = currentUser as any;
+      if (typeof user.hideReadReceipts === "boolean") setHideReadReceipts(user.hideReadReceipts);
+      if (typeof user.hideOnlineStatus === "boolean") setHideOnlineStatus(user.hideOnlineStatus);
     }
   }, [currentUser]);
 
@@ -233,6 +242,42 @@ export default function SettingsPage() {
       return !prev;
     });
   }, []);
+
+  /* ── toggle privacy setting ── */
+  const togglePrivacy = useCallback(
+    async (field: "hideReadReceipts" | "hideOnlineStatus") => {
+      const newValue = field === "hideReadReceipts" ? !hideReadReceipts : !hideOnlineStatus;
+      if (field === "hideReadReceipts") setHideReadReceipts(newValue);
+      else setHideOnlineStatus(newValue);
+
+      setSavingPrivacy(true);
+      try {
+        const res = await apiFetch("/api/users/me", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ [field]: newValue }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.user) setCurrentUser(data.user);
+          toast("Privacy updated!", "success");
+        } else {
+          // Revert on failure
+          if (field === "hideReadReceipts") setHideReadReceipts(!newValue);
+          else setHideOnlineStatus(!newValue);
+          const err = await res.json().catch(() => ({}));
+          toast(err.error || "Failed to update privacy", "error");
+        }
+      } catch {
+        if (field === "hideReadReceipts") setHideReadReceipts(!newValue);
+        else setHideOnlineStatus(!newValue);
+        toast("Network error", "error");
+      } finally {
+        setSavingPrivacy(false);
+      }
+    },
+    [hideReadReceipts, hideOnlineStatus, toast, setCurrentUser]
+  );
 
   /* ── save profile ── */
   const saveProfile = useCallback(async () => {
@@ -382,8 +427,25 @@ export default function SettingsPage() {
             </div>
           </div>
         )}
-        <SettingsRow icon={<SettingsIcons.Shield />} label="privacy">
-          <span style={{ fontSize: 12, color: "var(--ink-3)" }}>everyone</span>
+      </div>
+
+      {/* ── PRIVACY ── */}
+      <SectionLabel>privacy</SectionLabel>
+      <div
+        style={{
+          background: "var(--bg-elev)",
+          borderRadius: 18,
+          boxShadow: "var(--shadow-card)",
+          overflow: "hidden",
+          opacity: savingPrivacy ? 0.7 : 1,
+          transition: "opacity 0.15s",
+        }}
+      >
+        <SettingsRow icon={<SettingsIcons.Shield />} label="hide read receipts">
+          <Toggle on={hideReadReceipts} onToggle={() => togglePrivacy("hideReadReceipts")} />
+        </SettingsRow>
+        <SettingsRow icon={<SettingsIcons.Shield />} label="hide online status">
+          <Toggle on={hideOnlineStatus} onToggle={() => togglePrivacy("hideOnlineStatus")} />
         </SettingsRow>
       </div>
 

@@ -46,6 +46,7 @@ export function Sidebar() {
   const [query, setQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Global search with debounce
@@ -160,13 +161,33 @@ export function Sidebar() {
   }
 
   const filteredConversations = useMemo(() => {
-    if (!query) return conversations;
-    const q = query.toLowerCase();
-    return conversations.filter((c) =>
-      c.name?.toLowerCase().includes(q) ||
-      c.participants.some((p) => p.user.nickname.toLowerCase().includes(q))
-    );
-  }, [conversations, query]);
+    let list = conversations;
+
+    // Filter by archive state
+    if (showArchived) {
+      list = list.filter((c) => c.isArchived);
+    } else {
+      list = list.filter((c) => !c.isArchived);
+    }
+
+    // Apply search query
+    if (query) {
+      const q = query.toLowerCase();
+      list = list.filter((c) =>
+        c.name?.toLowerCase().includes(q) ||
+        c.participants.some((p) => p.user.nickname.toLowerCase().includes(q))
+      );
+    }
+
+    // Sort: pinned first, then by updatedAt (already sorted from API)
+    list = [...list].sort((a, b) => {
+      if (a.isPinned && !b.isPinned) return -1;
+      if (!a.isPinned && b.isPinned) return 1;
+      return 0;
+    });
+
+    return list;
+  }, [conversations, query, showArchived]);
 
   const filteredUsers = useMemo(() => {
     if (!query) return allUsers;
@@ -389,7 +410,9 @@ export function Sidebar() {
         </div>
       ) : tab === "chats" ? (
         <>
-          <div className="convo-section-label">direct messages</div>
+          <div className="convo-section-label">
+            {showArchived ? "archived" : "direct messages"}
+          </div>
           <div className="convo-list">
             {!conversationsLoaded && conversations.length === 0 ? (
               <SidebarSkeletons />
@@ -402,7 +425,9 @@ export function Sidebar() {
                   fontSize: 13,
                 }}
               >
-                {conversations.length === 0 ? (
+                {showArchived ? (
+                  "no archived chats"
+                ) : conversations.length === 0 ? (
                   <>
                     no chats yet
                     <br />
@@ -415,7 +440,7 @@ export function Sidebar() {
                         fontSize: 13,
                       }}
                     >
-                      find someone to chat with →
+                      find someone to chat with &rarr;
                     </button>
                   </>
                 ) : (
@@ -430,7 +455,7 @@ export function Sidebar() {
                     conversation={conversation}
                   />
                 ))}
-                {hasMoreConversations && !query && (
+                {hasMoreConversations && !query && !showArchived && (
                   <button
                     onClick={loadMoreConversations}
                     disabled={loadingMoreConvos}
@@ -448,6 +473,15 @@ export function Sidebar() {
               </>
             )}
           </div>
+
+          {/* Archive toggle */}
+          <button
+            onClick={() => setShowArchived(!showArchived)}
+            className="archive-toggle"
+          >
+            <Icons.Archive />
+            {showArchived ? "back to chats" : "archived chats"}
+          </button>
         </>
       ) : (
         <>

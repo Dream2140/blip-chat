@@ -19,6 +19,10 @@ interface ConversationStore {
   incrementUnread: (conversationId: string) => void;
   clearUnread: (conversationId: string) => void;
 
+  drafts: Record<string, string>;
+  setDraft: (conversationId: string, text: string) => void;
+  clearDraft: (conversationId: string) => void;
+
   messagesByConversation: Record<string, Message[]>;
   setMessages: (conversationId: string, messages: Message[]) => void;
   addMessage: (conversationId: string, message: Message) => void;
@@ -74,6 +78,18 @@ export const useConversationStore = create<ConversationStore>((set) => ({
         c.id === conversationId ? { ...c, unreadCount: 0 } : c
       ),
     })),
+
+  drafts: {},
+  setDraft: (conversationId, text) =>
+    set((state) => ({
+      drafts: { ...state.drafts, [conversationId]: text },
+    })),
+  clearDraft: (conversationId) =>
+    set((state) => {
+      const next = { ...state.drafts };
+      delete next[conversationId];
+      return { drafts: next };
+    }),
 
   messagesByConversation: {},
   setMessages: (conversationId, messages) =>

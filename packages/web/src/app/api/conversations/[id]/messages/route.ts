@@ -226,6 +226,38 @@ export async function POST(
       return NextResponse.json({ error: "Not a participant" }, { status: 403 });
     }
 
+    // Block check for DIRECT conversations
+    const convo = await prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: {
+        type: true,
+        participants: { select: { userId: true } },
+      },
+    });
+
+    if (convo?.type === "DIRECT") {
+      const otherUserId = convo.participants.find(
+        (p) => p.userId !== auth.userId
+      )?.userId;
+
+      if (otherUserId) {
+        const block = await prisma.block.findFirst({
+          where: {
+            OR: [
+              { blockerId: auth.userId, blockedId: otherUserId },
+              { blockerId: otherUserId, blockedId: auth.userId },
+            ],
+          },
+        });
+        if (block) {
+          return NextResponse.json(
+            { error: "Cannot send message" },
+            { status: 403 }
+          );
+        }
+      }
+    }
+
     const message = await prisma.message.create({
       data: {
         conversationId,

@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useConversationStore } from "@/stores/conversation-store";
 import { apiFetch } from "@/lib/api-client";
+import { formatMessage } from "@/lib/message-format";
 import { useToast } from "./Toast";
 import { UserAvatar } from "./UserAvatar";
 import { ForwardModal } from "./ForwardModal";
@@ -309,6 +310,20 @@ export function MessageBubble({
     }
   }
 
+  async function toggleStar() {
+    try {
+      const res = await apiFetch(`/api/messages/${message.id}/star`, {
+        method: "POST",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        toast.show(data.starred ? "Message starred" : "Message unstarred", "success");
+      }
+    } catch {
+      toast.show("Failed to star message", "error");
+    }
+  }
+
   const reactions = message.reactions || [];
 
   return (
@@ -369,7 +384,7 @@ export function MessageBubble({
                   </div>
                 </div>
               ) : (
-                message.text
+                message.text ? formatMessage(message.text) : null
               )}
               {!isEditing && (
                 <div className="hover-actions">
@@ -529,6 +544,14 @@ export function MessageBubble({
             }}
           >
             <span>{"\uD83D\uDCCC"}</span> {message.pinnedAt ? "Unpin" : "Pin"}
+          </button>
+          <button
+            onClick={() => {
+              toggleStar();
+              closeContextMenu();
+            }}
+          >
+            <span>{"\u2B50"}</span> Star
           </button>
         </div>
       )}

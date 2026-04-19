@@ -18,11 +18,18 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  // Privacy settings
+  hideReadReceipts Boolean @default(false)
+  hideOnlineStatus Boolean @default(false)
+
   participations ConversationParticipant[]
   messages       Message[]              @relation("SentMessages")
   readReceipts   MessageReadReceipt[]
   refreshTokens  RefreshToken[]
   reactions      Reaction[]
+  blocksGiven    Block[]                @relation("BlocksGiven")
+  blocksReceived Block[]                @relation("BlocksReceived")
+  starredMessages StarredMessage[]
 
   @@index([nickname])
   @@index([lastSeenAt])
@@ -84,6 +91,12 @@ model ConversationParticipant {
   lastReadMessageId String?
   lastReadAt        DateTime?
 
+  // Conversation management
+  isMuted    Boolean   @default(false)
+  archivedAt DateTime?
+  pinnedAt   DateTime?
+  deletedAt  DateTime?
+
   @@unique([conversationId, userId])
   @@index([userId])
   @@index([conversationId])
@@ -105,8 +118,9 @@ model Message {
   pinnedById     String?
   createdAt      DateTime     @default(now())
 
-  readReceipts MessageReadReceipt[]
-  reactions    Reaction[]
+  readReceipts    MessageReadReceipt[]
+  reactions       Reaction[]
+  starredMessages StarredMessage[]
 
   @@index([conversationId, createdAt])
   @@index([conversationId, senderId, deletedAt])
@@ -137,4 +151,29 @@ model MessageReadReceipt {
   @@unique([messageId, userId])
   @@index([messageId])
   @@index([userId, readAt])
+}
+
+model Block {
+  id        String   @id @default(cuid())
+  blockerId String
+  blocker   User     @relation("BlocksGiven", fields: [blockerId], references: [id], onDelete: Cascade)
+  blockedId String
+  blocked   User     @relation("BlocksReceived", fields: [blockedId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([blockerId, blockedId])
+  @@index([blockerId])
+  @@index([blockedId])
+}
+
+model StarredMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messageId String
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, messageId])
+  @@index([userId, createdAt])
 }

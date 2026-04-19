@@ -42,6 +42,8 @@ export const updateProfileSchema = z.object({
     .optional(),
   bio: z.string().max(200).nullable().optional(),
   avatarUrl: z.string().url().nullable().optional(),
+  hideReadReceipts: z.boolean().optional(),
+  hideOnlineStatus: z.boolean().optional(),
 });
 
 export const searchUsersSchema = z.object({

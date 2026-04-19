@@ -18,6 +18,9 @@ export interface Conversation {
   participants: ConversationParticipant[];
   lastMessage: Message | null;
   unreadCount: number;
+  isMuted: boolean;
+  isArchived: boolean;
+  isPinned: boolean;
 }
 
 export interface ConversationParticipant {

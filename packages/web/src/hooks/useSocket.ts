@@ -255,6 +255,9 @@ export function useSocket() {
           participants: [],
           lastMessage: null,
           unreadCount: 0,
+          isMuted: false,
+          isArchived: false,
+          isPinned: false,
         });
       });
 

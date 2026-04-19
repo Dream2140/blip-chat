@@ -21,7 +21,8 @@ export function MessageInput({
   replyTo,
   onClearReply,
 }: MessageInputProps) {
-  const [text, setText] = useState("");
+  const draft = useConversationStore((s) => s.drafts[conversationId] || "");
+  const [text, setText] = useState(draft);
   const [sending, setSending] = useState(false);
   const [showEmoji, setShowEmoji] = useState(false);
   const showToast = useToast((s) => s.show);
@@ -64,6 +65,24 @@ export function MessageInput({
       }
     };
   }, [conversationId, emitTypingStop]);
+
+  // Restore draft on conversation change
+  useEffect(() => {
+    const d = useConversationStore.getState().drafts[conversationId] || "";
+    setText(d);
+  }, [conversationId]);
+
+  // Save draft on text change (debounced)
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (text.trim()) {
+        useConversationStore.getState().setDraft(conversationId, text);
+      } else {
+        useConversationStore.getState().clearDraft(conversationId);
+      }
+    }, 500);
+    return () => clearTimeout(timeout);
+  }, [text, conversationId]);
 
   const autoResize = useCallback(() => {
     const el = textareaRef.current;
@@ -110,6 +129,7 @@ export function MessageInput({
 
     stopTyping();
     setText("");
+    useConversationStore.getState().clearDraft(conversationId);
     onClearReply?.();
 
     try {

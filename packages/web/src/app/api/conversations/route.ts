@@ -17,7 +17,12 @@ export async function GET(request: NextRequest) {
 
     const conversations = await prisma.conversation.findMany({
       where: {
-        participants: { some: { userId: auth.userId } },
+        participants: {
+          some: {
+            userId: auth.userId,
+            deletedAt: null,
+          },
+        },
       },
       include: {
         participants: {
@@ -45,9 +50,10 @@ export async function GET(request: NextRequest) {
     // Get current user's participant records with read cursors
     const myParticipants = await prisma.conversationParticipant.findMany({
       where: { userId: auth.userId, conversationId: { in: paginatedConvos.map((c) => c.id) } },
-      select: { conversationId: true, lastReadMessageId: true },
+      select: { conversationId: true, lastReadMessageId: true, isMuted: true, archivedAt: true, pinnedAt: true },
     });
     const cursorMap = new Map(myParticipants.map((p) => [p.conversationId, p.lastReadMessageId]));
+    const participantMap = new Map(myParticipants.map((p) => [p.conversationId, p]));
 
     // For conversations with a read cursor, count messages after that cursor's createdAt
     // For conversations without a cursor, count all messages from others
@@ -98,6 +104,7 @@ export async function GET(request: NextRequest) {
 
     const items = paginatedConvos.map((c) => {
         const unreadCount = unreadMap.get(c.id) || 0;
+        const myParticipant = participantMap.get(c.id);
 
         return {
           id: c.id,
@@ -132,6 +139,9 @@ export async function GET(request: NextRequest) {
               }
             : null,
           unreadCount,
+          isMuted: myParticipant?.isMuted || false,
+          isArchived: !!myParticipant?.archivedAt,
+          isPinned: !!myParticipant?.pinnedAt,
         };
       });
 
@@ -173,6 +183,22 @@ export async function POST(request: NextRequest) {
 
       const otherId = participantIds[0];
 
+      // Check if either user has blocked the other
+      const block = await prisma.block.findFirst({
+        where: {
+          OR: [
+            { blockerId: auth.userId, blockedId: otherId },
+            { blockerId: otherId, blockedId: auth.userId },
+          ],
+        },
+      });
+      if (block) {
+        return NextResponse.json(
+          { error: "Cannot start conversation" },
+          { status: 403 }
+        );
+      }
+
       // Find existing direct conversation
       const existing = await prisma.conversation.findFirst({
         where: {
@@ -201,6 +227,7 @@ export async function POST(request: NextRequest) {
       });
 
       if (existing) {
+        const myP = existing.participants.find((p) => p.userId === auth.userId);
         return NextResponse.json({
           conversation: {
             ...existing,
@@ -213,6 +240,9 @@ export async function POST(request: NextRequest) {
             })),
             lastMessage: null,
             unreadCount: 0,
+            isMuted: myP?.isMuted || false,
+            isArchived: !!myP?.archivedAt,
+            isPinned: !!myP?.pinnedAt,
           },
         });
       }
@@ -273,6 +303,9 @@ export async function POST(request: NextRequest) {
         })),
         lastMessage: null,
         unreadCount: 0,
+        isMuted: false,
+        isArchived: false,
+        isPinned: false,
       },
     });
   });

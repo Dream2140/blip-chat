@@ -40,7 +40,33 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({ conversation });
+    const myParticipant = conversation.participants.find(
+      (p) => p.userId === auth.userId
+    );
+
+    return NextResponse.json({
+      conversation: {
+        ...conversation,
+        createdAt: conversation.createdAt.toISOString(),
+        updatedAt: conversation.updatedAt.toISOString(),
+        participants: conversation.participants.map((p) => ({
+          ...p,
+          joinedAt: p.joinedAt.toISOString(),
+          user: {
+            ...p.user,
+            lastSeenAt: p.user.lastSeenAt
+              ? (p.user.lastSeenAt as Date).toISOString()
+              : null,
+            createdAt: p.user.createdAt
+              ? (p.user.createdAt as Date).toISOString()
+              : null,
+          },
+        })),
+        isMuted: myParticipant?.isMuted || false,
+        isArchived: !!(myParticipant as Record<string, unknown>)?.archivedAt,
+        isPinned: !!(myParticipant as Record<string, unknown>)?.pinnedAt,
+      },
+    });
   });
 }
 
