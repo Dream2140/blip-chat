@@ -8,8 +8,11 @@ function withSecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
   response.headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' wss://blip-chat-ws.fly.dev https://blip-chat-ws.fly.dev; font-src 'self' https://fonts.gstatic.com; frame-ancestors 'none'"
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' wss://blip-chat-ws.fly.dev https://blip-chat-ws.fly.dev; font-src 'self' https://fonts.gstatic.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests"
   );
+  if (process.env.NODE_ENV === "production") {
+    response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  }
   return response;
 }
 

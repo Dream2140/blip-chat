@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/api-helpers";
+import { rateLimit } from "@/lib/rate-limit";
 
 // POST /api/conversations/[id]/participants — add participants (admin only)
 export async function POST(
@@ -8,6 +9,10 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   return withAuth(request, async (req, auth) => {
+    if (!rateLimit(`addpart:${auth.userId}`, 10)) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
     const { id: conversationId } = await params;
     const body = await req.json();
     const { userIds } = body as { userIds: string[] };

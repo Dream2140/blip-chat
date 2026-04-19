@@ -15,19 +15,11 @@ export async function GET(request: NextRequest) {
 
     const users = await prisma.user.findMany({
       where: {
-        AND: [
-          { id: { not: auth.userId } },
-          {
-            OR: [
-              { nickname: { contains: q, mode: "insensitive" } },
-              { email: { contains: q, mode: "insensitive" } },
-            ],
-          },
-        ],
+        id: { not: auth.userId },
+        nickname: { contains: q, mode: "insensitive" },
       },
       select: {
         id: true,
-        email: true,
         nickname: true,
         avatarUrl: true,
         bio: true,

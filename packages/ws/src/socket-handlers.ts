@@ -36,8 +36,15 @@ export function registerSocketHandlers(
   // Join conversation rooms
   socket.on(SocketEvents.JOIN_CONVERSATIONS, ({ conversationIds }) => {
     try {
+      // Basic validation
+      if (!Array.isArray(conversationIds) || conversationIds.length > 100) {
+        console.warn(`[Socket] ${userId} tried to join ${conversationIds?.length} rooms — rejected`);
+        return;
+      }
       for (const id of conversationIds) {
-        socket.join(`conversation:${id}`);
+        if (typeof id === 'string' && id.length < 50) {
+          socket.join(`conversation:${id}`);
+        }
       }
     } catch (err) {
       console.error("[Socket] JOIN_CONVERSATIONS error:", err);

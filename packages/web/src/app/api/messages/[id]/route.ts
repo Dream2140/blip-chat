@@ -4,6 +4,7 @@ import { withAuth } from "@/lib/api-helpers";
 import { editMessageSchema } from "@/lib/validators";
 import { publishMessageEvent } from "@/lib/redis";
 import { SocketEvents } from "@chat-app/shared";
+import { rateLimit } from "@/lib/rate-limit";
 
 // PATCH /api/messages/[id] — edit message
 export async function PATCH(
@@ -11,6 +12,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   return withAuth(request, async (req, auth) => {
+    if (!rateLimit(`edit:${auth.userId}`, 20)) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
     const { id } = await params;
     const body = await req.json();
     const result = editMessageSchema.safeParse(body);
@@ -55,6 +60,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   return withAuth(request, async (_req, auth) => {
+    if (!rateLimit(`delete:${auth.userId}`, 20)) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
     const { id } = await params;
 
     const message = await prisma.message.findFirst({

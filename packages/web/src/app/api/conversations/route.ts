@@ -4,6 +4,7 @@ import { withAuth } from "@/lib/api-helpers";
 import { createConversationSchema } from "@/lib/validators";
 import { publishMessageEvent } from "@/lib/redis";
 import { SocketEvents } from "@chat-app/shared";
+import { rateLimit } from "@/lib/rate-limit";
 
 // GET /api/conversations — list user's conversations
 export async function GET(request: NextRequest) {
@@ -130,6 +131,10 @@ export async function GET(request: NextRequest) {
 // POST /api/conversations — create conversation
 export async function POST(request: NextRequest) {
   return withAuth(request, async (req, auth) => {
+    if (!rateLimit(`newconv:${auth.userId}`, 10)) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+
     const body = await req.json();
     const result = createConversationSchema.safeParse(body);
 
