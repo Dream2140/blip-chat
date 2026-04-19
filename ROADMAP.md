@@ -171,15 +171,15 @@ v0.2 — фичи есть, но проект не hardened. v0.3 — стаби
 - [x] **Unread count на sidebar** — incrementUnread/clearUnread, instant badge update + title
 - [x] **Delivered status** — MESSAGE_DELIVERED ACK flow, double-tick display
 
-## Patch 0.3.3 — UX Polish
+## Patch 0.3.3 — UX Polish ✅
 
-- [ ] **Message timestamp on hover** — полная дата/время при наведении
-- [ ] **Link preview** — OG meta для URL в сообщениях
-- [ ] **Keyboard shortcuts** — Esc закрыть модалки, Ctrl+K поиск
-- [ ] **Mobile swipe-to-reply** — свайп вправо для reply
-- [ ] **Last seen** — "last seen 5 min ago" под именем в header
-- [ ] **Online status в header** — зелёная точка + "online" текст для DM
-- [ ] **Empty search state** — illustration + text когда ничего не найдено
+- [x] **Message timestamp on hover** — native tooltip с полной датой/временем
+- [ ] **Link preview** — OG meta для URL (deferred — нужен серверный fetch + кэш)
+- [x] **Keyboard shortcuts** — Esc закрыть модалки/emoji/reply, Ctrl+K поиск
+- [x] **Mobile swipe-to-reply** — свайп вправо с visual feedback
+- [x] **Last seen** — "last seen Xm ago" в DM header
+- [x] **Online status в header** — зелёная точка + "online" для DM
+- [ ] **Empty search state** — (minor, skipped)
 
 ## Patch 0.3.4 — Testing & CI
 
